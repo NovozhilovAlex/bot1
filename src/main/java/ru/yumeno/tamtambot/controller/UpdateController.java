@@ -1,10 +1,10 @@
 package ru.yumeno.tamtambot.controller;
 
 import chat.tamtam.bot.builders.NewMessageBodyBuilder;
+import chat.tamtam.bot.builders.attachments.AttachmentsBuilder;
+import chat.tamtam.bot.builders.attachments.InlineKeyboardBuilder;
 import chat.tamtam.botapi.exceptions.ClientException;
-import chat.tamtam.botapi.model.BotStartedUpdate;
-import chat.tamtam.botapi.model.MessageCreatedUpdate;
-import chat.tamtam.botapi.model.NewMessageBody;
+import chat.tamtam.botapi.model.*;
 import chat.tamtam.botapi.queries.SendMessageQuery;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,16 +12,21 @@ import org.springframework.stereotype.Controller;
 import ru.yumeno.tamtambot.entity.Task;
 import ru.yumeno.tamtambot.exceptions.ResourceNotFoundException;
 import ru.yumeno.tamtambot.service.TaskService;
+import ru.yumeno.tamtambot.service.WorkerService;
+
+import java.util.List;
 
 @Controller
 @Slf4j
 public class UpdateController {
     private TamtamBot tamtamBot;
     private final TaskService taskService;
+    private final WorkerService workerService;
 
     @Autowired
-    public UpdateController(TaskService taskService) {
+    public UpdateController(TaskService taskService, WorkerService workerService) {
         this.taskService = taskService;
+        this.workerService = workerService;
     }
 
     public void registerBot(TamtamBot tamtamBot) {
@@ -42,29 +47,55 @@ public class UpdateController {
             log.info("Try to get task text by id");
             try {
                 Task task = taskService.getTaskById(Integer.parseInt(messageText));
-                String taskText = task.getTaskText();
-                NewMessageBody replyMessage = NewMessageBodyBuilder
-                        .ofText("Текст задачи: " + taskText).build();
-                Long chatId = update.getMessage().getRecipient().getChatId();
-                SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), replyMessage).chatId(chatId);
-                tamtamBot.sendAnswerMessage(query);
+                tamtamBot.sendAnswerMessage(createSendMessageQuery(
+                        update.getMessage().getRecipient().getChatId(), taskAnswerFormatter(task)));
             } catch (ResourceNotFoundException e) {
                 log.debug(e.getMessage());
-                NewMessageBody answer = NewMessageBodyBuilder
-                        .ofText("Задачи с id = " + messageText + " не существует").build();
-                Long chatId = update.getMessage().getRecipient().getChatId();
-                SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer).chatId(chatId);
-                tamtamBot.sendAnswerMessage(query);
+                tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getMessage().getRecipient().getChatId(),
+                        "Задачи с id = " + messageText + " не существует"));
             }
         }
     }
 
     public void processBotStartedUpdate(BotStartedUpdate update) throws ClientException {
-        NewMessageBody answer = NewMessageBodyBuilder
-                .ofText("Для отображения текста задачи введите ее id").build();
-        Long chatId = update.getChatId();
-        SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer).chatId(chatId);
+        CallbackButton btn = new CallbackButton("btn pressed", "Все задачи");
+        NewMessageBody answer = NewMessageBodyBuilder.ofText("Для отображения задачи введите ее id\n" +
+                        "Для отображения всех задач введите команду /all_tasks или нажмите на кнопку")
+                .withAttachments(AttachmentsBuilder
+                        .inlineKeyboard(InlineKeyboardBuilder
+                                .singleRow(btn)))
+                .build();
+        SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer).chatId(update.getChatId());
         tamtamBot.sendAnswerMessage(query);
+    }
+
+    public void processAllTasksCommand(Message message) throws ClientException {
+        log.info("Try to get all tasks");
+        try {
+            String username = message.getSender().getUsername();
+            List<Task> tasks = workerService.getTasksByWorkerEmail(usernameToEmail(username));
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(
+                    message.getRecipient().getChatId(), allTasksAnswerFormatter(tasks)));
+        } catch (ResourceNotFoundException e) {
+            log.debug(e.getMessage());
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                    "У Вас сейчас нет задач"));
+        }
+    }
+
+    public void processButtonPressed(MessageCallbackUpdate update) throws ClientException {
+        log.info("Try to get all tasks");
+        try {
+            String username = update.getCallback().getUser().getUsername();
+            System.out.println(username);
+            List<Task> tasks = workerService.getTasksByWorkerEmail(usernameToEmail(username));
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(
+                    update.getMessage().getRecipient().getChatId(), allTasksAnswerFormatter(tasks)));
+        } catch (ResourceNotFoundException e) {
+            log.debug(e.getMessage());
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getMessage().getRecipient().getChatId(),
+                    "У Вас сейчас нет задач"));
+        }
     }
 
     private boolean isUpdateValid(MessageCreatedUpdate update) {
@@ -77,6 +108,28 @@ public class UpdateController {
             return false;
         }
         return true;
+    }
+
+    private SendMessageQuery createSendMessageQuery(Long chatId, String text) {
+        NewMessageBody answer = NewMessageBodyBuilder.ofText(text).build();
+        return new SendMessageQuery(tamtamBot.getClient(), answer).chatId(chatId);
+    }
+
+    private String allTasksAnswerFormatter(List<Task> tasks) {
+        StringBuilder answer = new StringBuilder();
+        for (Task task : tasks) {
+            answer.append("Номер: ").append(task.getTaskId()).append(" | Наименование: ").append(task.getTaskText())
+                    .append("\n");
+        }
+        return answer.toString();
+    }
+
+    private String taskAnswerFormatter(Task task) {
+        return "Номер: " + task.getTaskId() + " | Наименование: " + task.getTaskText();
+    }
+
+    private String usernameToEmail(String username) {
+        return username.substring(8) + "@gelicon.biz";
     }
 
     private boolean isDigit(String s) {

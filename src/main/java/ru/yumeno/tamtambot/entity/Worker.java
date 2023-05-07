@@ -7,16 +7,12 @@ import jakarta.persistence.Table;
 import lombok.Data;
 
 @Entity
-@Table(name = "ERROR")
+@Table(name = "WORKER")
 @Data
-public class Task {
+public class Worker {
     @Id
-    @Column(name = "ERROR_ID")
-    private int taskId;
-    @Column(name = "ERROR_TEXT")
-    private String taskText;
     @Column(name = "WORKER_ID")
     private int workerId;
-    @Column(name = "ERROR_STATUS")
-    private int errorStatus;
+    @Column(name = "WORKER_EMAIL")
+    private String workerEmail;
 }
