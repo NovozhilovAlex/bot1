@@ -1,8 +1,8 @@
-package ru.yumeno.tamtambot.repository;
+package biz.gelicon.gits.tamtambot.repository;
 
+import biz.gelicon.gits.tamtambot.entity.Worker;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import ru.yumeno.tamtambot.entity.Worker;
 
 import java.util.Optional;
 

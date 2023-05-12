@@ -1,4 +1,4 @@
-package ru.yumeno.tamtambot.entity;
+package biz.gelicon.gits.tamtambot.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,4 +15,6 @@ public class Worker {
     private int workerId;
     @Column(name = "WORKER_EMAIL")
     private String workerEmail;
+    @Column(name = "WORKER_FAMILY")
+    private String workerFamily;
 }
