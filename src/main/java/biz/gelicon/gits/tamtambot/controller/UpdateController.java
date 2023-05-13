@@ -68,20 +68,40 @@ public class UpdateController {
                 Issue issue = issueService.getIssueById(Integer.parseInt(IssueId));
                 AttachmentsCarrier attachmentsCarrier = createAttachments(issue.getIssueAppendices());
 
-                NewMessageBody answer = NewMessageBodyBuilder
-                        .ofText(answerFormatter.getAnswerForFindCommand(issue))
-                        .withAttachments(attachmentsCarrier.getImages())
-                        .build();
-                SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
-                        .chatId(message.getRecipient().getChatId());
-                query.execute();
+                String answerText = answerFormatter.getAnswerForFindCommand(issue);
+                if (answerFormatter.getAnswerForFindCommand(issue).length() > 4000) {
+                    List<String> answerTextList = answerTextToStringList(answerText);
+                    for (int i = 0; i < answerTextList.size() - 1; i++) {
+                        NewMessageBody answer = NewMessageBodyBuilder
+                                .ofText(answerTextList.get(i))
+                                .build();
+                        SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
+                                .chatId(message.getRecipient().getChatId());
+                        query.execute();
+                    }
+                    NewMessageBody answer = NewMessageBodyBuilder
+                            .ofText(answerTextList.get(answerTextList.size() - 1))
+                            .withAttachments(attachmentsCarrier.getImages())
+                            .build();
+                    SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
+                            .chatId(message.getRecipient().getChatId());
+                    query.execute();
+                } else {
+                    NewMessageBody answer = NewMessageBodyBuilder
+                            .ofText(answerFormatter.getAnswerForFindCommand(issue))
+                            .withAttachments(attachmentsCarrier.getImages())
+                            .build();
+                    SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
+                            .chatId(message.getRecipient().getChatId());
+                    query.execute();
+                }
 
                 for (UploadedInfo info : attachmentsCarrier.getFiles()) {
-                    answer = NewMessageBodyBuilder
+                    NewMessageBody answer = NewMessageBodyBuilder
                             .ofText("")
                             .withAttachments(AttachmentsBuilder.files(info))
                             .build();
-                    query = new SendMessageQuery(tamtamBot.getClient(), answer)
+                    SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
                             .chatId(message.getRecipient().getChatId());
                     boolean flag = true;
                     while (flag) {
@@ -235,6 +255,18 @@ public class UpdateController {
             }
         }
         return fileName.substring(0, dotIndex);
+    }
+
+    private List<String> answerTextToStringList(String answerText) {
+        List<String> output = new ArrayList<>();
+        for (int i = 0; i < answerText.length(); i += 4000) {
+            if (i + 4000 > answerText.length()) {
+                output.add(answerText.substring(i));
+            } else {
+                output.add(answerText.substring(i, i + 4000));
+            }
+        }
+        return output;
     }
 
     private boolean isDigit(String s) {
