@@ -22,7 +22,7 @@ public class AnswerFormatter {
                 text = new String(transit.getIssueTransitText(), w1251);
             }
             answer += SEPARATOR +
-                    transit.getIssueTransitType().getIssueTransitTypeName() + ", От кого: " +
+                    transit.getIssueTransitType().getIssueTransitTypeName().trim() + ", От кого: " +
                     transit.getFromWorker().getWorkerFamily().trim() + ", Кому: " +
                     transit.getWorker().getWorkerFamily().trim() + ", " + transit.getIssueTransitDate() + "\n";
             if (transit.getIssueTransitDateNeed() != null) {

@@ -5,10 +5,7 @@ import biz.gelicon.gits.tamtambot.entity.IssueAppendix;
 import biz.gelicon.gits.tamtambot.exceptions.ResourceNotFoundException;
 import biz.gelicon.gits.tamtambot.service.IssueService;
 import biz.gelicon.gits.tamtambot.service.WorkerService;
-import biz.gelicon.gits.tamtambot.utils.AnswerFormatter;
-import biz.gelicon.gits.tamtambot.utils.CommandParser;
-import biz.gelicon.gits.tamtambot.utils.ParsedCommand;
-import biz.gelicon.gits.tamtambot.utils.ZlibCompressor;
+import biz.gelicon.gits.tamtambot.utils.*;
 import chat.tamtam.bot.builders.NewMessageBodyBuilder;
 import chat.tamtam.bot.builders.attachments.AttachmentsBuilder;
 import chat.tamtam.botapi.TamTamBotAPI;
@@ -24,10 +21,7 @@ import org.springframework.stereotype.Controller;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 @Controller
 @Slf4j
@@ -72,19 +66,40 @@ public class UpdateController {
             log.info("Try to get issue info by id = " + IssueId);
             try {
                 Issue issue = issueService.getIssueById(Integer.parseInt(IssueId));
-                AttachmentsBuilder attachmentsBuilder = createAttachments(issue.getIssueAppendices());
+                AttachmentsCarrier attachmentsCarrier = createAttachments(issue.getIssueAppendices());
+
                 NewMessageBody answer = NewMessageBodyBuilder
                         .ofText(answerFormatter.getAnswerForFindCommand(issue))
-                        .withAttachments(attachmentsBuilder)
+                        .withAttachments(attachmentsCarrier.getImages())
                         .build();
                 SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
                         .chatId(message.getRecipient().getChatId());
-                tamtamBot.sendAnswerMessage(query);
+                query.execute();
+
+                for (UploadedInfo info : attachmentsCarrier.getFiles()) {
+                    answer = NewMessageBodyBuilder
+                            .ofText("")
+                            .withAttachments(AttachmentsBuilder.files(info))
+                            .build();
+                    query = new SendMessageQuery(tamtamBot.getClient(), answer)
+                            .chatId(message.getRecipient().getChatId());
+                    boolean flag = true;
+                    while (flag) {
+                        log.info("Try to send message with file attachment, token: " + info.getToken());
+                        Thread.sleep(100);
+                        try {
+                            query.execute();
+                            flag = false;
+                        } catch (RuntimeException e) {
+                            log.info(e.getMessage());
+                        }
+                    }
+                }
             } catch (ResourceNotFoundException e) {
                 log.debug(e.getMessage());
                 tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
                         "Задачи с id = " + IssueId + " не существует"));
-            } catch (RuntimeException | APIException | IOException | ClientException e) {
+            } catch (RuntimeException | InterruptedException | APIException | IOException | ClientException e) {
                 log.warn(e.getMessage());
                 tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
                         "Ой, что то мне поплохело. Причина: " + e.getMessage()));
@@ -161,7 +176,7 @@ public class UpdateController {
         return username.substring(8) + "@gelicon.biz";
     }
 
-    private AttachmentsBuilder createAttachments(List<IssueAppendix> appendices) throws IOException,
+    private AttachmentsCarrier createAttachments(List<IssueAppendix> appendices) throws IOException,
             ClientException, APIException {
         if (appendices == null) {
             return null;
@@ -169,6 +184,7 @@ public class UpdateController {
         TamTamBotAPI botAPI = new TamTamBotAPI(tamtamBot.getClient());
         TamTamUploadAPI uploadAPI = new TamTamUploadAPI(tamtamBot.getClient());
         List<String> tokens = new ArrayList<>();
+        List<UploadedInfo> uploadedInfos = new ArrayList<>();
         for (IssueAppendix appendix : appendices) {
             byte[] content = appendix.getIssueAppendixContent();
             if (content == null) {
@@ -177,19 +193,28 @@ public class UpdateController {
             String name = appendix.getIssueAppendixName();
             String format = cutFileFormat(name);
             ByteArrayInputStream bais = new ByteArrayInputStream(content);
-            compressor.decompressFile(bais, new File("tmp/file." + format));
+//            File file = new File("tmp/" + fileNameToLat(name));
+            File file = File.createTempFile(fileNameToLat(cutFileName(name)), "." + format);
+            compressor.decompressFile(bais, file);
             if (Objects.equals(format, "png") | Objects.equals(format, "bmp") |
-                    Objects.equals(format, "jpg") | Objects.equals(format, "jpeg")) {
+                    Objects.equals(format, "jpg") | Objects.equals(format, "jpeg") |
+                    Objects.equals(format, "gif")) {
                 UploadEndpoint endpoint = botAPI.getUploadUrl(UploadType.IMAGE).execute();
                 String uploadUrl = endpoint.getUrl();
-                PhotoTokens photoTokens = uploadAPI.uploadImage(uploadUrl, new File("tmp/file." + format)).execute();
+                PhotoTokens photoTokens = uploadAPI.uploadImage(uploadUrl, file).execute();
                 Collection<PhotoToken> tokenSet = photoTokens.getPhotos().values();
                 for (PhotoToken token : tokenSet) {
                     tokens.add(token.getToken());
                 }
+            } else {
+                UploadEndpoint endpoint = botAPI.getUploadUrl(UploadType.FILE).execute();
+                String uploadUrl = endpoint.getUrl();
+                UploadedInfo uploadedInfo = uploadAPI.uploadFile(uploadUrl, file).execute();
+                uploadedInfos.add(uploadedInfo);
             }
         }
-        return AttachmentsBuilder.photos(tokens.toArray(new String[0]));
+        AttachmentsBuilder builder = AttachmentsBuilder.photos(tokens.toArray(new String[0]));
+        return new AttachmentsCarrier(builder, uploadedInfos);
     }
 
     private String cutFileFormat(String fileName) {
@@ -202,6 +227,16 @@ public class UpdateController {
         return fileName.substring(dotIndex + 1);
     }
 
+    private String cutFileName(String fileName) {
+        int dotIndex = fileName.indexOf('.');
+        for (int i = 0; i < fileName.length(); i++) {
+            if (fileName.charAt(i) == '.') {
+                dotIndex = i;
+            }
+        }
+        return fileName.substring(0, dotIndex);
+    }
+
     private boolean isDigit(String s) {
         try {
             Integer.parseInt(s);
@@ -209,5 +244,51 @@ public class UpdateController {
         } catch (NumberFormatException e) {
             return false;
         }
+    }
+
+    private String fileNameToLat(String fileName) {
+        Map<String, String> map = new HashMap<>();
+        map.put("а", "a");
+        map.put("б", "b");
+        map.put("в", "v");
+        map.put("г", "g");
+        map.put("д", "d");
+        map.put("е", "e");
+        map.put("ё", "yo");
+        map.put("ж", "zh");
+        map.put("з", "z");
+        map.put("и", "i");
+        map.put("й", "j");
+        map.put("к", "k");
+        map.put("л", "l");
+        map.put("м", "m");
+        map.put("н", "n");
+        map.put("о", "o");
+        map.put("п", "p");
+        map.put("р", "r");
+        map.put("с", "s");
+        map.put("т", "t");
+        map.put("у", "u");
+        map.put("ф", "f");
+        map.put("х", "h");
+        map.put("ц", "ts");
+        map.put("ч", "ch");
+        map.put("ш", "sh");
+        map.put("ъ", "'");
+        map.put("ы", "i");
+        map.put("ь", "'");
+        map.put("э", "e");
+        map.put("ю", "yu");
+        map.put("я", "ya");
+        String answer = "";
+        fileName = fileName.toLowerCase();
+        for (char c : fileName.toCharArray()) {
+            if (map.containsKey(String.valueOf(c))) {
+                answer += map.get(String.valueOf(c));
+            } else {
+                answer += String.valueOf(c);
+            }
+        }
+        return answer;
     }
 }
