@@ -20,6 +20,7 @@ import org.springframework.stereotype.Controller;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
 
@@ -77,7 +78,7 @@ public class UpdateController {
                                 .build();
                         SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
                                 .chatId(message.getRecipient().getChatId());
-                        query.execute();
+                        createSendMessageWithAttachmentsQuery(query);
                     }
                     NewMessageBody answer = NewMessageBodyBuilder
                             .ofText(answerTextList.get(answerTextList.size() - 1))
@@ -85,7 +86,7 @@ public class UpdateController {
                             .build();
                     SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
                             .chatId(message.getRecipient().getChatId());
-                    query.execute();
+                    createSendMessageWithAttachmentsQuery(query);
                 } else {
                     NewMessageBody answer = NewMessageBodyBuilder
                             .ofText(answerFormatter.getAnswerForFindCommand(issue))
@@ -93,7 +94,7 @@ public class UpdateController {
                             .build();
                     SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
                             .chatId(message.getRecipient().getChatId());
-                    query.execute();
+                    createSendMessageWithAttachmentsQuery(query);
                 }
 
                 for (UploadedInfo info : attachmentsCarrier.getFiles()) {
@@ -103,23 +104,13 @@ public class UpdateController {
                             .build();
                     SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
                             .chatId(message.getRecipient().getChatId());
-                    boolean flag = true;
-                    while (flag) {
-                        log.info("Try to send message with file attachment, token: " + info.getToken());
-                        Thread.sleep(100);
-                        try {
-                            query.execute();
-                            flag = false;
-                        } catch (RuntimeException e) {
-                            log.info(e.getMessage());
-                        }
-                    }
+                    createSendMessageWithAttachmentsQuery(query);
                 }
             } catch (ResourceNotFoundException e) {
                 log.debug(e.getMessage());
                 tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
                         "Задачи с id = " + IssueId + " не существует"));
-            } catch (RuntimeException | InterruptedException | APIException | IOException | ClientException e) {
+            } catch (APIException | IOException | InterruptedException | RuntimeException e) {
                 log.warn(e.getMessage());
                 tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
                         "Ой, что то мне поплохело. Причина: " + e.getMessage()));
@@ -192,6 +183,23 @@ public class UpdateController {
         return new SendMessageQuery(tamtamBot.getClient(), answer).chatId(chatId);
     }
 
+    private void createSendMessageWithAttachmentsQuery(SendMessageQuery query) throws InterruptedException {
+        boolean flag = true;
+        while (flag) {
+            log.info("Try to send message with attachment");
+            Thread.sleep(100);
+            try {
+                query.execute();
+                flag = false;
+            } catch (ClientException | APIException e) {
+                if (!e.getMessage().contains("errors.process.attachment.file.not.processed")) {
+                    flag = false;
+                }
+                log.warn(e.getMessage());
+            }
+        }
+    }
+
     private String usernameToEmail(String username) {
         return username.substring(8) + "@gelicon.biz";
     }
@@ -213,12 +221,10 @@ public class UpdateController {
             String name = appendix.getIssueAppendixName();
             String format = cutFileFormat(name);
             ByteArrayInputStream bais = new ByteArrayInputStream(content);
-//            File file = new File("tmp/" + fileNameToLat(name));
+//            File file = new File(fileNameToLat(name));
             File file = File.createTempFile(fileNameToLat(cutFileName(name)), "." + format);
             compressor.decompressFile(bais, file);
-            if (Objects.equals(format, "png") | Objects.equals(format, "bmp") |
-                    Objects.equals(format, "jpg") | Objects.equals(format, "jpeg") |
-                    Objects.equals(format, "gif")) {
+            if (Set.of("png", "bmp", "jpg", "jpeg", "gif").contains(format.toLowerCase())) {
                 UploadEndpoint endpoint = botAPI.getUploadUrl(UploadType.IMAGE).execute();
                 String uploadUrl = endpoint.getUrl();
                 PhotoTokens photoTokens = uploadAPI.uploadImage(uploadUrl, file).execute();
