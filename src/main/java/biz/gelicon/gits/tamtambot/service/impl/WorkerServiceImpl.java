@@ -29,8 +29,7 @@ public class WorkerServiceImpl implements WorkerService {
         Optional<Worker> optional = workerRepository.findByWorkerEmail(email);
         if (optional.isPresent()) {
             Worker worker = optional.get();
-            List<Issue> issues = issueRepository.findAllByWorkerIdAndIssueStatusOrderByIssueDateDesc(
-                    worker.getWorkerId(), 0);
+            List<Issue> issues = issueRepository.findAllIssues(worker.getWorkerId());
             if (!issues.isEmpty()) {
                 return issues;
             } else {

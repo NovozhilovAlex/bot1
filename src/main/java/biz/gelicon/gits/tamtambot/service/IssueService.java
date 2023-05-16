@@ -5,5 +5,6 @@ import biz.gelicon.gits.tamtambot.entity.IssueStatus;
 
 public interface IssueService {
     Issue getIssueById(int id);
+
     IssueStatus getIssueStatusByIssueId(int issueId);
 }

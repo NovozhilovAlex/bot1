@@ -2,8 +2,6 @@ package biz.gelicon.gits.tamtambot.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,6 +21,10 @@ public class Issue {
     private int issueStatus;
     @Column(name = "ERROR_DATE")
     private LocalDateTime issueDate;
+    @Column(name = "ERROR_DATENEED")
+    private LocalDateTime issueDateNeed;
+    @Column(name = "ERROR_PRIORITY")
+    private String issuePriority;
     @OneToMany(fetch = FetchType.EAGER)
     @JoinColumn(name = "ERROR_ID")
     private List<IssueTransit> issueTransits;

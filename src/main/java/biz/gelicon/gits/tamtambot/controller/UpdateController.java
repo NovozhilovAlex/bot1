@@ -9,6 +9,7 @@ import biz.gelicon.gits.tamtambot.service.WorkerService;
 import biz.gelicon.gits.tamtambot.utils.*;
 import chat.tamtam.bot.builders.NewMessageBodyBuilder;
 import chat.tamtam.bot.builders.attachments.AttachmentsBuilder;
+import chat.tamtam.bot.builders.attachments.InlineKeyboardBuilder;
 import chat.tamtam.botapi.TamTamBotAPI;
 import chat.tamtam.botapi.TamTamUploadAPI;
 import chat.tamtam.botapi.exceptions.APIException;
@@ -16,13 +17,11 @@ import chat.tamtam.botapi.exceptions.ClientException;
 import chat.tamtam.botapi.model.*;
 import chat.tamtam.botapi.queries.SendMessageQuery;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.logging.log4j.core.util.JsonUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
 
@@ -68,7 +67,6 @@ public class UpdateController {
         }
 
         String[] commandArgs = parsedCommand.getText().split(" ");
-
         if (commandArgs[0].charAt(0) == '#' && isDigit(commandArgs[0].substring(1))) {
             String IssueId = commandArgs[0].substring(1);
             log.info("Try to get issue info by id = " + IssueId);
@@ -143,30 +141,50 @@ public class UpdateController {
     }
 
     public void processBotStartedUpdate(BotStartedUpdate update) throws ClientException {
-//        CallbackButton btn = new CallbackButton("btn pressed", "Все задачи");
+        CallbackButton btn = new CallbackButton("btn pressed", "Все задачи");
         NewMessageBody answer = NewMessageBodyBuilder.ofText("Доступные команды:\n" +
                         "/help - Список команд \n" +
                         "/show #{номер_задачи} - Содержание задачи\n" +
-                        "/show #{номер_задачи} short - Краткое содержание задачи")
-//                .withAttachments(AttachmentsBuilder
-//                        .inlineKeyboard(InlineKeyboardBuilder
-//                                .singleRow(btn)))
+                        "/show #{номер_задачи} short - Краткое содержание задачи\n" +
+                        "/inbox - Список всех Ваших задач")
+                .withAttachments(AttachmentsBuilder
+                        .inlineKeyboard(InlineKeyboardBuilder
+                                .singleRow(btn)))
                 .build();
         SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer).chatId(update.getChatId());
         tamtamBot.sendAnswerMessage(query);
     }
 
     public void processHelpCommand(Message message) throws ClientException {
+        CallbackButton btn = new CallbackButton("btn pressed", "Все задачи");
         NewMessageBody answer = NewMessageBodyBuilder.ofText("Доступные команды:\n" +
-                "/help - Список команд \n" +
-                "/show #{номер_задачи} - Содержание задачи\n" +
-                "/show #{номер_задачи} short - Краткое содержание задачи").build();
+                        "/help - Список команд \n" +
+                        "/show #{номер_задачи} - Содержание задачи\n" +
+                        "/show #{номер_задачи} short - Краткое содержание задачи\n" +
+                        "/inbox - Список всех Ваших задач")
+                .withAttachments(AttachmentsBuilder
+                        .inlineKeyboard(InlineKeyboardBuilder
+                                .singleRow(btn)))
+                .build();
         SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
                 .chatId(message.getRecipient().getChatId());
         tamtamBot.sendAnswerMessage(query);
     }
 
     public void processInboxCommand(Message message) throws ClientException {
+        String messageText = message.getBody().getText();
+        if (messageText == null) {
+            log.debug("Message text is null");
+            return;
+        }
+        ParsedCommand parsedCommand = commandParser.getParsedCommand(messageText);
+        if (parsedCommand.getText() != null) {
+            log.debug("Inbox command has args");
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                    "Команда /inbox не должна содержать аргументы"));
+            processHelpCommand(message);
+            return;
+        }
         log.info("Try to get all issues");
         try {
             String username = message.getSender().getUsername();
@@ -177,6 +195,10 @@ public class UpdateController {
             log.debug(e.getMessage());
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
                     "У Вас сейчас нет задач"));
+        } catch (RuntimeException e) {
+            log.warn(e.getMessage());
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                    "Ой, что то мне поплохело. Причина: " + e.getMessage()));
         }
     }
 
@@ -184,7 +206,6 @@ public class UpdateController {
         log.info("Try to get all issues");
         try {
             String username = update.getCallback().getUser().getUsername();
-            System.out.println(username);
             List<Issue> Issues = workerService.getIssuesByWorkerEmail(usernameToEmail(username));
             tamtamBot.sendAnswerMessage(createSendMessageQuery(
                     update.getMessage().getRecipient().getChatId(), answerFormatter.getAnswerForInboxCommand(Issues)));
@@ -192,7 +213,15 @@ public class UpdateController {
             log.debug(e.getMessage());
             tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getMessage().getRecipient().getChatId(),
                     "У Вас сейчас нет задач"));
+        } catch (RuntimeException e) {
+            log.warn(e.getMessage());
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getMessage().getRecipient().getChatId(),
+                    "Ой, что то мне поплохело. Причина: " + e.getMessage()));
         }
+    }
+
+    public void processMessageCreatedUpdate(MessageCreatedUpdate update) throws ClientException {
+        processHelpCommand(update.getMessage());
     }
 
     private SendMessageQuery createSendMessageQuery(Long chatId, String text) {

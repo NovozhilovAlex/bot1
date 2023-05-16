@@ -7,6 +7,7 @@ import chat.tamtam.botapi.exceptions.ClientException;
 import chat.tamtam.botapi.model.BotStartedUpdate;
 import chat.tamtam.botapi.model.Message;
 import chat.tamtam.botapi.model.MessageCallbackUpdate;
+import chat.tamtam.botapi.model.MessageCreatedUpdate;
 import chat.tamtam.botapi.queries.SendMessageQuery;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +52,11 @@ public class TamtamBot extends LongPollingBot {
     @UpdateHandler
     public void onButtonPressed(MessageCallbackUpdate update) throws ClientException {
         updateController.processButtonPressed(update);
+    }
+
+    @UpdateHandler
+    public void onMessageCreated(MessageCreatedUpdate update) throws ClientException {
+        updateController.processMessageCreatedUpdate(update);
     }
 
     public void sendAnswerMessage(SendMessageQuery query) throws ClientException {

@@ -60,11 +60,12 @@ public class AnswerFormatter {
     }
 
     public String getAnswerForInboxCommand(List<Issue> Issues) {
-        StringBuilder answer = new StringBuilder();
-        for (Issue Issue : Issues) {
-            answer.append("Номер: ").append(Issue.getIssueId()).append(" | Наименование: ").append(Issue.getIssueText())
-                    .append("\n");
+        String answer = SEPARATOR + "\n";
+        for (Issue issue : Issues) {
+            answer += "№: " + issue.getIssueId() + " | Наим-ие: " + issue.getIssueText() + " | "
+                    + issue.getIssueDate() + " | Пр-т: " + issue.getIssuePriority() + " | Испр. до: " +
+                    issue.getIssueDateNeed() + "\n" + SEPARATOR + "\n";
         }
-        return answer.toString();
+        return answer;
     }
 }

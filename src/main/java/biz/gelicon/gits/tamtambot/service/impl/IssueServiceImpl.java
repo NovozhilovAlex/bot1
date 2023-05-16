@@ -5,8 +5,6 @@ import biz.gelicon.gits.tamtambot.entity.IssueStatus;
 import biz.gelicon.gits.tamtambot.exceptions.ResourceNotFoundException;
 import biz.gelicon.gits.tamtambot.repository.IssueRepository;
 import biz.gelicon.gits.tamtambot.repository.IssueStatusRepository;
-import biz.gelicon.gits.tamtambot.repository.IssueTransitRepository;
-import biz.gelicon.gits.tamtambot.repository.WorkerRepository;
 import biz.gelicon.gits.tamtambot.service.IssueService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
