@@ -2,6 +2,7 @@ package biz.gelicon.gits.tamtambot.controller;
 
 import biz.gelicon.gits.tamtambot.entity.Issue;
 import biz.gelicon.gits.tamtambot.entity.IssueAppendix;
+import biz.gelicon.gits.tamtambot.entity.IssueStatus;
 import biz.gelicon.gits.tamtambot.exceptions.ResourceNotFoundException;
 import biz.gelicon.gits.tamtambot.service.IssueService;
 import biz.gelicon.gits.tamtambot.service.WorkerService;
@@ -15,6 +16,7 @@ import chat.tamtam.botapi.exceptions.ClientException;
 import chat.tamtam.botapi.model.*;
 import chat.tamtam.botapi.queries.SendMessageQuery;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.core.util.JsonUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 
@@ -23,6 +25,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
+
+import static java.util.Map.entry;
 
 @Controller
 @Slf4j
@@ -48,7 +52,7 @@ public class UpdateController {
         this.tamtamBot = tamtamBot;
     }
 
-    public void processFindCommand(Message message) throws ClientException {
+    public void processShowCommand(Message message) throws ClientException {
         String messageText = message.getBody().getText();
         if (messageText == null) {
             log.debug("Message text is null");
@@ -56,21 +60,36 @@ public class UpdateController {
         }
         ParsedCommand parsedCommand = commandParser.getParsedCommand(messageText);
         if (parsedCommand.getText() == null) {
-            log.debug("Find command argument is null");
+            log.debug("Show command argument is null");
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
-                    "Команда /find должна иметь аргумент"));
+                    "Команда /show должна иметь аргумент"));
             processHelpCommand(message);
             return;
         }
-        if (parsedCommand.getText().charAt(0) == '#' && isDigit(parsedCommand.getText().substring(1))) {
-            String IssueId = parsedCommand.getText().substring(1);
+
+        String[] commandArgs = parsedCommand.getText().split(" ");
+
+        if (commandArgs[0].charAt(0) == '#' && isDigit(commandArgs[0].substring(1))) {
+            String IssueId = commandArgs[0].substring(1);
             log.info("Try to get issue info by id = " + IssueId);
             try {
+                String answerText;
                 Issue issue = issueService.getIssueById(Integer.parseInt(IssueId));
                 AttachmentsCarrier attachmentsCarrier = createAttachments(issue.getIssueAppendices());
-
-                String answerText = answerFormatter.getAnswerForFindCommand(issue);
-                if (answerFormatter.getAnswerForFindCommand(issue).length() > 4000) {
+                if (commandArgs.length == 1) {
+                    answerText = answerFormatter.getAnswerForShowCommand(issue);
+                } else if (commandArgs.length == 2 && Objects.equals(commandArgs[1].trim(), "short")) {
+                    System.out.println("123");
+                    IssueStatus issueStatus = issueService.getIssueStatusByIssueId(issue.getIssueId());
+                    answerText = answerFormatter.getAnswerForShortShowCommand(issueStatus, issue);
+                } else {
+                    log.debug("show command argument not valid");
+                    tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                            "Неверный синтаксис для команды /show"));
+                    processHelpCommand(message);
+                    return;
+                }
+                if (answerText.length() > 4000) {
                     List<String> answerTextList = answerTextToStringList(answerText);
                     for (int i = 0; i < answerTextList.size() - 1; i++) {
                         NewMessageBody answer = NewMessageBodyBuilder
@@ -89,7 +108,7 @@ public class UpdateController {
                     createSendMessageWithAttachmentsQuery(query);
                 } else {
                     NewMessageBody answer = NewMessageBodyBuilder
-                            .ofText(answerFormatter.getAnswerForFindCommand(issue))
+                            .ofText(answerText)
                             .withAttachments(attachmentsCarrier.getImages())
                             .build();
                     SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
@@ -116,20 +135,19 @@ public class UpdateController {
                         "Ой, что то мне поплохело. Причина: " + e.getMessage()));
             }
         } else {
-            log.debug("find command argument not valid");
+            log.debug("show command argument not valid");
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
-                    "Неверный синтаксис для команды /find"));
+                    "Неверный синтаксис для команды /show"));
             processHelpCommand(message);
         }
     }
 
     public void processBotStartedUpdate(BotStartedUpdate update) throws ClientException {
 //        CallbackButton btn = new CallbackButton("btn pressed", "Все задачи");
-        NewMessageBody answer = NewMessageBodyBuilder.ofText("""
-                        Доступные команды:
-
-                        /help - Список команд
-                        /find #{номер_задачи} - Содержание задачи""")
+        NewMessageBody answer = NewMessageBodyBuilder.ofText("Доступные команды:\n" +
+                        "/help - Список команд \n" +
+                        "/show #{номер_задачи} - Содержание задачи\n" +
+                        "/show #{номер_задачи} short - Краткое содержание задачи")
 //                .withAttachments(AttachmentsBuilder
 //                        .inlineKeyboard(InlineKeyboardBuilder
 //                                .singleRow(btn)))
@@ -139,11 +157,10 @@ public class UpdateController {
     }
 
     public void processHelpCommand(Message message) throws ClientException {
-        NewMessageBody answer = NewMessageBodyBuilder.ofText("""
-                Доступные команды:
-
-                /help - Информация о боте
-                /find #{номер_задачи} - Содержание задачи""").build();
+        NewMessageBody answer = NewMessageBodyBuilder.ofText("Доступные команды:\n" +
+                "/help - Список команд \n" +
+                "/show #{номер_задачи} - Содержание задачи\n" +
+                "/show #{номер_задачи} short - Краткое содержание задачи").build();
         SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
                 .chatId(message.getRecipient().getChatId());
         tamtamBot.sendAnswerMessage(query);
@@ -285,39 +302,39 @@ public class UpdateController {
     }
 
     private String fileNameToLat(String fileName) {
-        Map<String, String> map = new HashMap<>();
-        map.put("а", "a");
-        map.put("б", "b");
-        map.put("в", "v");
-        map.put("г", "g");
-        map.put("д", "d");
-        map.put("е", "e");
-        map.put("ё", "yo");
-        map.put("ж", "zh");
-        map.put("з", "z");
-        map.put("и", "i");
-        map.put("й", "j");
-        map.put("к", "k");
-        map.put("л", "l");
-        map.put("м", "m");
-        map.put("н", "n");
-        map.put("о", "o");
-        map.put("п", "p");
-        map.put("р", "r");
-        map.put("с", "s");
-        map.put("т", "t");
-        map.put("у", "u");
-        map.put("ф", "f");
-        map.put("х", "h");
-        map.put("ц", "ts");
-        map.put("ч", "ch");
-        map.put("ш", "sh");
-        map.put("ъ", "'");
-        map.put("ы", "i");
-        map.put("ь", "'");
-        map.put("э", "e");
-        map.put("ю", "yu");
-        map.put("я", "ya");
+        Map<String, String> map = Map.ofEntries(
+                entry("а", "a"),
+                entry("б", "b"),
+                entry("в", "v"),
+                entry("г", "g"),
+                entry("д", "d"),
+                entry("е", "e"),
+                entry("ё", "yo"),
+                entry("ж", "zh"),
+                entry("з", "z"),
+                entry("и", "i"),
+                entry("й", "j"),
+                entry("к", "k"),
+                entry("л", "l"),
+                entry("м", "m"),
+                entry("н", "n"),
+                entry("о", "o"),
+                entry("п", "p"),
+                entry("р", "r"),
+                entry("с", "s"),
+                entry("т", "t"),
+                entry("у", "u"),
+                entry("ф", "f"),
+                entry("х", "h"),
+                entry("ц", "ts"),
+                entry("ч", "ch"),
+                entry("ш", "sh"),
+                entry("ъ", "'"),
+                entry("ы", "i"),
+                entry("ь", "'"),
+                entry("э", "e"),
+                entry("ю", "yu"),
+                entry("я", "ya"));
         String answer = "";
         fileName = fileName.toLowerCase();
         for (char c : fileName.toCharArray()) {

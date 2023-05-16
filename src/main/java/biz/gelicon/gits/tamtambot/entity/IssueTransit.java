@@ -2,6 +2,8 @@ package biz.gelicon.gits.tamtambot.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
@@ -30,4 +32,6 @@ public class IssueTransit {
     @ManyToOne
     @JoinColumn(name = "ERRORTRANSITTYPE_ID")
     private IssueTransitType issueTransitType;
+//    @OneToOne(mappedBy = "issueTransit")
+//    private IssueStatus status;
 }

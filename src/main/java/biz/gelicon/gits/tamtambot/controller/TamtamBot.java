@@ -28,9 +28,9 @@ public class TamtamBot extends LongPollingBot {
         updateController.registerBot(this);
     }
 
-    @CommandHandler(value = "/find")
-    public void onFindCommandEntered(Message message) throws ClientException {
-        updateController.processFindCommand(message);
+    @CommandHandler(value = "/show")
+    public void onShowCommandEntered(Message message) throws ClientException {
+        updateController.processShowCommand(message);
     }
 
     @CommandHandler("/inbox")

@@ -1,8 +1,10 @@
 package biz.gelicon.gits.tamtambot.service.impl;
 
 import biz.gelicon.gits.tamtambot.entity.Issue;
+import biz.gelicon.gits.tamtambot.entity.IssueStatus;
 import biz.gelicon.gits.tamtambot.exceptions.ResourceNotFoundException;
 import biz.gelicon.gits.tamtambot.repository.IssueRepository;
+import biz.gelicon.gits.tamtambot.repository.IssueStatusRepository;
 import biz.gelicon.gits.tamtambot.repository.IssueTransitRepository;
 import biz.gelicon.gits.tamtambot.repository.WorkerRepository;
 import biz.gelicon.gits.tamtambot.service.IssueService;
@@ -14,31 +16,30 @@ import java.util.Optional;
 @Service
 public class IssueServiceImpl implements IssueService {
     private final IssueRepository issueRepository;
-    private final IssueTransitRepository issueTransitRepository;
-    private final WorkerRepository workerRepository;
+    private final IssueStatusRepository issueStatusRepository;
 
     @Autowired
-    public IssueServiceImpl(IssueRepository issueRepository, IssueTransitRepository issueTransitRepository, WorkerRepository workerRepository) {
+    public IssueServiceImpl(IssueRepository issueRepository, IssueStatusRepository issueStatusRepository) {
         this.issueRepository = issueRepository;
-        this.issueTransitRepository = issueTransitRepository;
-        this.workerRepository = workerRepository;
+        this.issueStatusRepository = issueStatusRepository;
     }
 
     @Override
     public Issue getIssueById(int id) {
         Optional<Issue> optional = issueRepository.findByIssueId(id);
         if (optional.isPresent()) {
-            Issue issue = optional.get();
-            return issue;
-//            List<IssueTransit> issueTransits = issueTransitRepository.findAllByIssue(issue);
-//            if (!issueTransits.isEmpty()) {
-//                issue.setIssueTransits(issueTransits);
-//                return issue;
-//            } else {
-//                throw new ResourceNotFoundException("No issue transits with issue id = " + id);
-//            }
+            return optional.get();
         } else {
             throw new ResourceNotFoundException("Issue not exist with id = " + id);
+        }
+    }
+
+    public IssueStatus getIssueStatusByIssueId(int issueId) {
+        Optional<IssueStatus> optional = issueStatusRepository.findByIssueId(issueId);
+        if (optional.isPresent()) {
+            return optional.get();
+        } else {
+            throw new ResourceNotFoundException("IssueStatus not exist with issue id = " + issueId);
         }
     }
 }
