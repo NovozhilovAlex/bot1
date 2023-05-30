@@ -3,6 +3,7 @@ package biz.gelicon.gits.tamtambot.controller;
 import chat.tamtam.bot.annotations.CommandHandler;
 import chat.tamtam.bot.annotations.UpdateHandler;
 import chat.tamtam.bot.longpolling.LongPollingBot;
+import chat.tamtam.botapi.exceptions.APIException;
 import chat.tamtam.botapi.exceptions.ClientException;
 import chat.tamtam.botapi.model.BotStartedUpdate;
 import chat.tamtam.botapi.model.Message;
@@ -44,6 +45,11 @@ public class TamtamBot extends LongPollingBot {
         updateController.processHelpCommand(message);
     }
 
+    @CommandHandler("/auth")
+    public void onAuthCommandEntered(Message message) throws ClientException {
+        updateController.processAuthCommand(message);
+    }
+
     @UpdateHandler
     public void onBotStarted(BotStartedUpdate update) throws ClientException {
         updateController.processBotStartedUpdate(update);
@@ -55,7 +61,7 @@ public class TamtamBot extends LongPollingBot {
     }
 
     @UpdateHandler
-    public void onMessageCreated(MessageCreatedUpdate update) throws ClientException {
+    public void onMessageCreated(MessageCreatedUpdate update) throws ClientException, APIException {
         updateController.processMessageCreatedUpdate(update);
     }
 

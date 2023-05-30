@@ -5,6 +5,7 @@ import biz.gelicon.gits.tamtambot.entity.IssueAppendix;
 import biz.gelicon.gits.tamtambot.entity.IssueStatus;
 import biz.gelicon.gits.tamtambot.exceptions.ResourceNotFoundException;
 import biz.gelicon.gits.tamtambot.service.IssueService;
+import biz.gelicon.gits.tamtambot.service.ProguserChatService;
 import biz.gelicon.gits.tamtambot.service.WorkerService;
 import biz.gelicon.gits.tamtambot.utils.*;
 import chat.tamtam.bot.builders.NewMessageBodyBuilder;
@@ -15,7 +16,7 @@ import chat.tamtam.botapi.TamTamUploadAPI;
 import chat.tamtam.botapi.exceptions.APIException;
 import chat.tamtam.botapi.exceptions.ClientException;
 import chat.tamtam.botapi.model.*;
-import chat.tamtam.botapi.queries.SendMessageQuery;
+import chat.tamtam.botapi.queries.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -23,6 +24,9 @@ import org.springframework.stereotype.Controller;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.*;
 
 import static java.util.Map.entry;
@@ -32,16 +36,18 @@ import static java.util.Map.entry;
 public class UpdateController {
     private final IssueService issueService;
     private final WorkerService workerService;
+    private final ProguserChatService proguserChatService;
     private final CommandParser commandParser;
     private final AnswerFormatter answerFormatter;
     private final ZlibCompressor compressor;
     private TamtamBot tamtamBot;
 
     @Autowired
-    public UpdateController(IssueService issueService, WorkerService workerService, CommandParser commandParser,
+    public UpdateController(IssueService issueService, WorkerService workerService, ProguserChatService proguserChatService, CommandParser commandParser,
                             AnswerFormatter answerFormatter, ZlibCompressor compressor) {
         this.issueService = issueService;
         this.workerService = workerService;
+        this.proguserChatService = proguserChatService;
         this.commandParser = commandParser;
         this.answerFormatter = answerFormatter;
         this.compressor = compressor;
@@ -52,11 +58,17 @@ public class UpdateController {
     }
 
     public void processShowCommand(Message message) throws ClientException {
+        String chatId = String.valueOf(message.getRecipient().getChatId());
+        if (!isChatIdAuthorized(chatId)) {
+            return;
+        }
+
         String messageText = message.getBody().getText();
         if (messageText == null) {
             log.debug("Message text is null");
             return;
         }
+
         ParsedCommand parsedCommand = commandParser.getParsedCommand(messageText);
         if (parsedCommand.getText() == null) {
             log.debug("Show command argument is null");
@@ -130,7 +142,7 @@ public class UpdateController {
             } catch (APIException | IOException | InterruptedException | RuntimeException e) {
                 log.warn(e.getMessage());
                 tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
-                        "Ой, что то мне поплохело. Причина: " + e.getMessage()));
+                        answerFormatter.getAnswerOnError(e)));
             }
         } else {
             log.debug("show command argument not valid");
@@ -141,15 +153,19 @@ public class UpdateController {
     }
 
     public void processBotStartedUpdate(BotStartedUpdate update) throws ClientException {
-        CallbackButton btn = new CallbackButton("btn pressed", "Все задачи");
-        NewMessageBody answer = NewMessageBodyBuilder.ofText("Доступные команды:\n" +
-                        "/help - Список команд \n" +
-                        "/show #{номер_задачи} - Содержание задачи\n" +
-                        "/show #{номер_задачи} short - Краткое содержание задачи\n" +
-                        "/inbox - Список всех Ваших задач")
-                .withAttachments(AttachmentsBuilder
-                        .inlineKeyboard(InlineKeyboardBuilder
-                                .singleRow(btn)))
+//        try {
+//            String chatId = String.valueOf(update.getChatId());
+//            String username = update.getUser().getUsername();
+//            proguserChatService.insertProguserChat(username.substring(8).toUpperCase(), chatId);
+//        } catch (ResourceNotFoundException e) {
+//            log.debug(e.getMessage());
+//            tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getChatId(),
+//                    "Proguser с именем " + update.getUser().getUsername().substring(8).toUpperCase() +
+//                            "не найден"));
+//        }
+
+        NewMessageBody answer = NewMessageBodyBuilder
+                .ofText("Введите команду /auth {пароль от gits} для авторизации")
                 .build();
         SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer).chatId(update.getChatId());
         tamtamBot.sendAnswerMessage(query);
@@ -158,7 +174,7 @@ public class UpdateController {
     public void processHelpCommand(Message message) throws ClientException {
         CallbackButton btn = new CallbackButton("btn pressed", "Все задачи");
         NewMessageBody answer = NewMessageBodyBuilder.ofText("Доступные команды:\n" +
-                        "/help - Список команд \n" +
+                        "/help - Список команд\n" +
                         "/show #{номер_задачи} - Содержание задачи\n" +
                         "/show #{номер_задачи} short - Краткое содержание задачи\n" +
                         "/inbox - Список всех Ваших задач")
@@ -171,12 +187,56 @@ public class UpdateController {
         tamtamBot.sendAnswerMessage(query);
     }
 
-    public void processInboxCommand(Message message) throws ClientException {
+    public void processAuthCommand(Message message) throws ClientException {
+        String chatId = String.valueOf(message.getRecipient().getChatId());
+        String username = message.getSender().getUsername().substring(8).toUpperCase().trim();
+
         String messageText = message.getBody().getText();
         if (messageText == null) {
             log.debug("Message text is null");
             return;
         }
+
+        ParsedCommand parsedCommand = commandParser.getParsedCommand(messageText);
+        if (parsedCommand.getText() == null) {
+            log.debug("Auth command argument is null");
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                    "Команда /auth должна иметь аргумент (пароль)"));
+            return;
+        }
+
+        log.info("Try to auth");
+        try {
+            DriverManager.getConnection ("jdbc:firebirdsql://10.15.3.43:3050/gits_test" +
+                    "?authPlugins=Legacy_Auth", username, parsedCommand.getText());
+            proguserChatService.insertProguserChat(username, chatId);
+            log.debug("User with chatId = " + chatId + "has been authorized");
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                    "Вы успешно авторизовались"));
+            processHelpCommand(message);
+        } catch (SQLException e) {
+            log.debug("Incorrect password");
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                    "Неверный пароль"));
+        } catch (ResourceNotFoundException e) {
+            log.debug(e.getMessage());
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(Long.valueOf(chatId),
+                    "Proguser с именем " + username + "не найден"));
+        }
+    }
+
+    public void processInboxCommand(Message message) throws ClientException {
+        String chatId = String.valueOf(message.getRecipient().getChatId());
+        if (!isChatIdAuthorized(chatId)) {
+            return;
+        }
+
+        String messageText = message.getBody().getText();
+        if (messageText == null) {
+            log.debug("Message text is null");
+            return;
+        }
+
         ParsedCommand parsedCommand = commandParser.getParsedCommand(messageText);
         if (parsedCommand.getText() != null) {
             log.debug("Inbox command has args");
@@ -185,6 +245,7 @@ public class UpdateController {
             processHelpCommand(message);
             return;
         }
+
         log.info("Try to get all issues");
         try {
             String username = message.getSender().getUsername();
@@ -198,11 +259,15 @@ public class UpdateController {
         } catch (RuntimeException e) {
             log.warn(e.getMessage());
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
-                    "Ой, что то мне поплохело. Причина: " + e.getMessage()));
+                    answerFormatter.getAnswerOnError(e)));
         }
     }
 
     public void processButtonPressed(MessageCallbackUpdate update) throws ClientException {
+        String chatId = String.valueOf(update.getMessage().getRecipient().getChatId());
+        if (!isChatIdAuthorized(chatId)) {
+            return;
+        }
         log.info("Try to get all issues");
         try {
             String username = update.getCallback().getUser().getUsername();
@@ -216,11 +281,15 @@ public class UpdateController {
         } catch (RuntimeException e) {
             log.warn(e.getMessage());
             tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getMessage().getRecipient().getChatId(),
-                    "Ой, что то мне поплохело. Причина: " + e.getMessage()));
+                    answerFormatter.getAnswerOnError(e)));
         }
     }
 
     public void processMessageCreatedUpdate(MessageCreatedUpdate update) throws ClientException {
+        String chatId = String.valueOf(update.getMessage().getRecipient().getChatId());
+        if (!isChatIdAuthorized(chatId)) {
+            return;
+        }
         processHelpCommand(update.getMessage());
     }
 
@@ -247,7 +316,7 @@ public class UpdateController {
     }
 
     private String usernameToEmail(String username) {
-        return username.substring(8) + "@gelicon.biz";
+        return username.substring(8).trim() + "@gelicon.biz";
     }
 
     private AttachmentsCarrier createAttachments(List<IssueAppendix> appendices) throws IOException,
@@ -287,6 +356,17 @@ public class UpdateController {
         }
         AttachmentsBuilder builder = AttachmentsBuilder.photos(tokens.toArray(new String[0]));
         return new AttachmentsCarrier(builder, uploadedInfos);
+    }
+
+    private boolean isChatIdAuthorized(String chatId) throws ClientException {
+        if (proguserChatService.isProguserChatFindByChatId(chatId)) {
+            return true;
+        } else {
+            log.debug("Unauthorized user, chatId = " + chatId);
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(Long.valueOf(chatId),
+                    "У Вас нет доступа"));
+            return false;
+        }
     }
 
     private String cutFileFormat(String fileName) {
@@ -363,7 +443,8 @@ public class UpdateController {
                 entry("ь", "'"),
                 entry("э", "e"),
                 entry("ю", "yu"),
-                entry("я", "ya"));
+                entry("я", "ya"),
+                entry("№", "nomer"));
         String answer = "";
         fileName = fileName.toLowerCase();
         for (char c : fileName.toCharArray()) {

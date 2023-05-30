@@ -33,7 +33,7 @@ public class WorkerServiceImpl implements WorkerService {
             if (!issues.isEmpty()) {
                 return issues;
             } else {
-                throw new ResourceNotFoundException("No issues with worker id = " + worker.getWorkerId());
+                throw new ResourceNotFoundException("No issues with worker id = " + worker.getWorkerId()); //TODO просто вернуть пустой список
             }
         } else {
             throw new ResourceNotFoundException("Worker not exist with email: " + email);

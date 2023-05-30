@@ -68,4 +68,8 @@ public class AnswerFormatter {
         }
         return answer;
     }
+
+    public String getAnswerOnError(Exception e) {
+        return "Ой, что то мне поплохело. Причина: " + e.getMessage();
+    }
 }
