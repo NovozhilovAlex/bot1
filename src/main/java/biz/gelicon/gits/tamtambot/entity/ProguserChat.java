@@ -1,9 +1,7 @@
 package biz.gelicon.gits.tamtambot.entity;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import javax.persistence.*;
+
 import lombok.Data;
 
 @Entity
@@ -11,6 +9,8 @@ import lombok.Data;
 @Data
 public class ProguserChat {
     @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "newrec")
+    @SequenceGenerator(name="newrec",sequenceName = "PROGUSERCHAT_ID_GEN", allocationSize = 1)
     @Column(name = "PROGUSERCHAT_ID")
     private int proguserChatId;
     @Column(name = "PROGUSER_ID")

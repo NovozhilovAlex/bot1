@@ -35,7 +35,7 @@ public class ProguserChatServiceImpl implements ProguserChatService {
             return;
         }
         Proguser proguser = findProguserByName(name);
-        proguserChatRepository.insert(2, proguser.getProguserId(), 1061, chatId);
+        proguserChatRepository.insert(proguser.getProguserId(), 1061, chatId);
     }
 
     private Proguser findProguserByName(String name) {
