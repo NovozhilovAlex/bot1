@@ -12,14 +12,13 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.0.6</version>
+        <version>2.5.1</version>
         <relativePath/>
     </parent>
 
     <properties>
         <java.version>11</java.version>
         <lombok.version>1.18.20</lombok.version>
-        <postgresql.version>42.2.27</postgresql.version>
     </properties>
 
     <dependencies>
@@ -56,6 +55,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
             <optional>true</optional>
         </dependency>
 
@@ -68,6 +68,7 @@
         <dependency>
             <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-community-dialects</artifactId>
+            <version>6.1.7.Final</version>
         </dependency>
     </dependencies>
 

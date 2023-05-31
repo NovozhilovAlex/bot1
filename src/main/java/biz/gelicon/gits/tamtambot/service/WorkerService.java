@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface WorkerService {
     List<Issue> getIssuesByWorkerEmail(String email);
+    List<Issue> getIssuesByChatId(String chatId);
 }

@@ -248,14 +248,18 @@ public class UpdateController {
 
         log.info("Try to get all issues");
         try {
-            String username = message.getSender().getUsername();
-            List<Issue> Issues = workerService.getIssuesByWorkerEmail(usernameToEmail(username));
+            List<Issue> issues = workerService.getIssuesByChatId(chatId);
+            if (issues.isEmpty()) {
+                tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                        "У Вас сейчас нет задач"));
+                return;
+            }
             tamtamBot.sendAnswerMessage(createSendMessageQuery(
-                    message.getRecipient().getChatId(), answerFormatter.getAnswerForInboxCommand(Issues)));
+                    message.getRecipient().getChatId(), answerFormatter.getAnswerForInboxCommand(issues)));
         } catch (ResourceNotFoundException e) {
             log.debug(e.getMessage());
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
-                    "У Вас сейчас нет задач"));
+                    "Не удалось найти ваш юзернейм в бд"));
         } catch (RuntimeException e) {
             log.warn(e.getMessage());
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
@@ -270,14 +274,18 @@ public class UpdateController {
         }
         log.info("Try to get all issues");
         try {
-            String username = update.getCallback().getUser().getUsername();
-            List<Issue> Issues = workerService.getIssuesByWorkerEmail(usernameToEmail(username));
+            List<Issue> issues = workerService.getIssuesByChatId(chatId);
+            if (issues.isEmpty()) {
+                tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getMessage().getRecipient().getChatId(),
+                        "У Вас сейчас нет задач"));
+                return;
+            }
             tamtamBot.sendAnswerMessage(createSendMessageQuery(
-                    update.getMessage().getRecipient().getChatId(), answerFormatter.getAnswerForInboxCommand(Issues)));
+                    update.getMessage().getRecipient().getChatId(), answerFormatter.getAnswerForInboxCommand(issues)));
         } catch (ResourceNotFoundException e) {
             log.debug(e.getMessage());
             tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getMessage().getRecipient().getChatId(),
-                    "У Вас сейчас нет задач"));
+                    "Не удалось найти ваш юзернейм в бд"));
         } catch (RuntimeException e) {
             log.warn(e.getMessage());
             tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getMessage().getRecipient().getChatId(),

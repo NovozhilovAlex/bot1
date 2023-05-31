@@ -1,7 +1,9 @@
 package biz.gelicon.gits.tamtambot.entity;
 
-import jakarta.persistence.*;
+import javax.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.LazyCollection;
+import org.hibernate.annotations.LazyCollectionOption;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,10 +27,12 @@ public class Issue {
     private LocalDateTime issueDateNeed;
     @Column(name = "ERROR_PRIORITY")
     private String issuePriority;
-    @OneToMany(fetch = FetchType.EAGER)
+    @LazyCollection(LazyCollectionOption.FALSE)
+    @OneToMany()
     @JoinColumn(name = "ERROR_ID")
     private List<IssueTransit> issueTransits;
-    @OneToMany(fetch = FetchType.EAGER)
+    @LazyCollection(LazyCollectionOption.FALSE)
+    @OneToMany()
     @JoinColumn(name = "ERROR_ID")
     private List<IssueAppendix> issueAppendices;
 }
