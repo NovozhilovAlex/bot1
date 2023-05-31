@@ -294,8 +294,7 @@ public class UpdateController {
     }
 
     public void processMessageCreatedUpdate(MessageCreatedUpdate update) throws ClientException {
-        String chatId = String.valueOf(update.getMessage().getRecipient().getChatId());
-        if (!isChatIdAuthorized(chatId)) {
+        if (update.getMessage().getRecipient().getChatType() != ChatType.DIALOG) {
             return;
         }
         processHelpCommand(update.getMessage());
