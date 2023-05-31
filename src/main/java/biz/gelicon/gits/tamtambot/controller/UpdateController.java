@@ -165,7 +165,7 @@ public class UpdateController {
 //        }
 
         NewMessageBody answer = NewMessageBodyBuilder
-                .ofText("Введите команду /auth {пароль от gits} для авторизации")
+                .ofText("Введите команду /auth {пароль от gits} для аутентификации")
                 .build();
         SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer).chatId(update.getChatId());
         tamtamBot.sendAnswerMessage(query);
@@ -174,6 +174,7 @@ public class UpdateController {
     public void processHelpCommand(Message message) throws ClientException {
         CallbackButton btn = new CallbackButton("btn pressed", "Все задачи");
         NewMessageBody answer = NewMessageBodyBuilder.ofText("Доступные команды:\n" +
+                        "/auth {пароль от gits} - Аутентификация\n" +
                         "/help - Список команд\n" +
                         "/show #{номер_задачи} - Содержание задачи\n" +
                         "/show #{номер_задачи} short - Краткое содержание задачи\n" +
