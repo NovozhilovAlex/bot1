@@ -14,8 +14,8 @@ public interface ProguserChatRepository extends JpaRepository<ProguserChat, Inte
     Optional<ProguserChat> findByChatId(String chatId);
     @Modifying
     @Transactional
-    @Query(value = "INSERT INTO PROGUSERCHAT (PROGUSER_ID, TYPE_IM_ID, CHATID)" +
-            " VALUES (?1, ?2, ?3)",
+    @Query(value = "INSERT INTO PROGUSERCHAT (PROGUSERCHAT_ID, PROGUSER_ID, TYPE_IM_ID, CHATID) " +
+            "VALUES (next value FOR PROGUSERCHAT_ID_GEN, ?1,  ?2, ?3)",
             nativeQuery = true)
     void insert(int proguserId, int typeImId, String chatId);
 }
