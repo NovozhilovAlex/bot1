@@ -1,10 +1,11 @@
 package biz.gelicon.gits.tamtambot.entity;
 
+import lombok.Data;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
-import lombok.Data;
 
 @Entity
 @Table(name = "PROGUSER")

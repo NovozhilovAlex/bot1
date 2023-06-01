@@ -19,6 +19,9 @@
     <properties>
         <java.version>11</java.version>
         <lombok.version>1.18.20</lombok.version>
+        <firebird.version>5.0.1.java11</firebird.version>
+        <tamtambot.version>0.0.2</tamtambot.version>
+        <hibernateDialects.version>6.1.7.Final</hibernateDialects.version>
     </properties>
 
     <dependencies>
@@ -49,7 +52,7 @@
         <dependency>
             <groupId>org.firebirdsql.jdbc</groupId>
             <artifactId>jaybird</artifactId>
-            <version>5.0.1.java11</version>
+            <version>${firebird.version}</version>
         </dependency>
 
         <dependency>
@@ -62,13 +65,13 @@
         <dependency>
             <groupId>chat.tamtam</groupId>
             <artifactId>tamtam-bot-sdk</artifactId>
-            <version>0.0.2</version>
+            <version>${tamtambot.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-community-dialects</artifactId>
-            <version>6.1.7.Final</version>
+            <version>${hibernateDialects.version}</version>
         </dependency>
     </dependencies>
 

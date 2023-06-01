@@ -16,7 +16,7 @@ import chat.tamtam.botapi.TamTamUploadAPI;
 import chat.tamtam.botapi.exceptions.APIException;
 import chat.tamtam.botapi.exceptions.ClientException;
 import chat.tamtam.botapi.model.*;
-import chat.tamtam.botapi.queries.*;
+import chat.tamtam.botapi.queries.SendMessageQuery;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -24,7 +24,6 @@ import org.springframework.stereotype.Controller;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.*;
@@ -43,7 +42,8 @@ public class UpdateController {
     private TamtamBot tamtamBot;
 
     @Autowired
-    public UpdateController(IssueService issueService, WorkerService workerService, ProguserChatService proguserChatService, CommandParser commandParser,
+    public UpdateController(IssueService issueService, WorkerService workerService,
+                            ProguserChatService proguserChatService, CommandParser commandParser,
                             AnswerFormatter answerFormatter, ZlibCompressor compressor) {
         this.issueService = issueService;
         this.workerService = workerService;
@@ -89,7 +89,6 @@ public class UpdateController {
                 if (commandArgs.length == 1) {
                     answerText = answerFormatter.getAnswerForShowCommand(issue);
                 } else if (commandArgs.length == 2 && Objects.equals(commandArgs[1].trim(), "short")) {
-                    System.out.println("123");
                     IssueStatus issueStatus = issueService.getIssueStatusByIssueId(issue.getIssueId());
                     answerText = answerFormatter.getAnswerForShortShowCommand(issueStatus, issue);
                 } else {
@@ -174,7 +173,7 @@ public class UpdateController {
     public void processHelpCommand(Message message) throws ClientException {
         CallbackButton btn = new CallbackButton("btn pressed", "Все задачи");
         NewMessageBody answer = NewMessageBodyBuilder.ofText("Доступные команды:\n" +
-                        "/auth {пароль от gits} - Аутентификация\n" +
+                        "/auth {логин от gits} {пароль от gits} - Аутентификация\n" +
                         "/help - Список команд\n" +
                         "/show #{номер_задачи} - Содержание задачи\n" +
                         "/show #{номер_задачи} short - Краткое содержание задачи\n" +
@@ -190,7 +189,6 @@ public class UpdateController {
 
     public void processAuthCommand(Message message) throws ClientException {
         String chatId = String.valueOf(message.getRecipient().getChatId());
-        String username = message.getSender().getUsername().substring(8).toUpperCase().trim();
 
         String messageText = message.getBody().getText();
         if (messageText == null) {
@@ -202,14 +200,24 @@ public class UpdateController {
         if (parsedCommand.getText() == null) {
             log.debug("Auth command argument is null");
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
-                    "Команда /auth должна иметь аргумент (пароль)"));
+                    "Команда /auth должна иметь аргументы (логин и пароль)"));
             return;
         }
 
+        String[] commandArgs = parsedCommand.getText().split(" ");
+        if (commandArgs.length != 2) {
+            log.debug("Auth command argument is null");
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                    "Команда /auth должна иметь два аргумента (логин и пароль)"));
+            return;
+        }
+
+        String username = commandArgs[0].trim().toUpperCase();
+        String password = commandArgs[1].trim();
         log.info("Try to auth");
         try {
-            DriverManager.getConnection ("jdbc:firebirdsql://10.15.3.43:3050/gits_test" +
-                    "?authPlugins=Legacy_Auth", username, parsedCommand.getText());
+            DriverManager.getConnection("jdbc:firebirdsql://10.15.3.43:3050/gits_test" +
+                    "?authPlugins=Legacy_Auth", username, password);
             proguserChatService.insertProguserChat(username, chatId);
             log.debug("User with chatId = " + chatId + "has been authorized");
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
@@ -218,7 +226,7 @@ public class UpdateController {
         } catch (SQLException e) {
             log.debug("Incorrect password");
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
-                    "Неверный пароль"));
+                    "Неверный логин или пароль"));
         } catch (ResourceNotFoundException e) {
             log.debug(e.getMessage());
             tamtamBot.sendAnswerMessage(createSendMessageQuery(Long.valueOf(chatId),
@@ -315,16 +323,13 @@ public class UpdateController {
                 query.execute();
                 flag = false;
             } catch (ClientException | APIException e) {
+                System.out.println(e.getMessage());
                 if (!e.getMessage().contains("errors.process.attachment.file.not.processed")) {
                     flag = false;
                 }
                 log.warn(e.getMessage());
             }
         }
-    }
-
-    private String usernameToEmail(String username) {
-        return username.substring(8).trim() + "@gelicon.biz";
     }
 
     private AttachmentsCarrier createAttachments(List<IssueAppendix> appendices) throws IOException,

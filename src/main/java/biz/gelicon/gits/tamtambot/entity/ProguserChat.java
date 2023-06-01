@@ -1,8 +1,8 @@
 package biz.gelicon.gits.tamtambot.entity;
 
-import javax.persistence.*;
-
 import lombok.Data;
+
+import javax.persistence.*;
 
 @Entity
 @Table(name = "PROGUSERCHAT")
@@ -10,7 +10,7 @@ import lombok.Data;
 public class ProguserChat {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "newrec")
-    @SequenceGenerator(name="newrec",sequenceName = "PROGUSERCHAT_ID_GEN", allocationSize = 1)
+    @SequenceGenerator(name = "newrec", sequenceName = "PROGUSERCHAT_ID_GEN", allocationSize = 1)
     @Column(name = "PROGUSERCHAT_ID")
     private int proguserChatId;
     @Column(name = "PROGUSER_ID")

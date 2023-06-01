@@ -25,22 +25,13 @@ public class WorkerServiceImpl implements WorkerService {
     private final ProguserWorkerRepository proguserWorkerRepository;
 
     @Autowired
-    public WorkerServiceImpl(WorkerRepository workerRepository, IssueRepository issueRepository, ProguserChatRepository proguserChatRepository, ProguserWorkerRepository proguserWorkerRepository) {
+    public WorkerServiceImpl(WorkerRepository workerRepository, IssueRepository issueRepository,
+                             ProguserChatRepository proguserChatRepository,
+                             ProguserWorkerRepository proguserWorkerRepository) {
         this.workerRepository = workerRepository;
         this.issueRepository = issueRepository;
         this.proguserChatRepository = proguserChatRepository;
         this.proguserWorkerRepository = proguserWorkerRepository;
-    }
-
-    @Override
-    public List<Issue> getIssuesByWorkerEmail(String email) {
-        Optional<Worker> optional = workerRepository.findByWorkerEmail(email);
-        if (optional.isPresent()) {
-            Worker worker = optional.get();
-            return issueRepository.findAllIssues(worker.getWorkerId());
-        } else {
-            throw new ResourceNotFoundException("Worker not exist with email: " + email);
-        }
     }
 
     @Override

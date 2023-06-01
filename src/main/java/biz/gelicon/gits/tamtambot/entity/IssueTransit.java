@@ -1,8 +1,8 @@
 package biz.gelicon.gits.tamtambot.entity;
 
-import javax.persistence.*;
 import lombok.Data;
 
+import javax.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity

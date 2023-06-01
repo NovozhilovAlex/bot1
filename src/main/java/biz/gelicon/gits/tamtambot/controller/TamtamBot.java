@@ -62,7 +62,7 @@ public class TamtamBot extends LongPollingBot {
     }
 
     @UpdateHandler
-    public void onMessageCreated(MessageCreatedUpdate update) throws ClientException, APIException {
+    public void onMessageCreated(MessageCreatedUpdate update) throws ClientException {
         updateController.processMessageCreatedUpdate(update);
     }
 
