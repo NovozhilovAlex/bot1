@@ -19,6 +19,7 @@ import chat.tamtam.botapi.model.*;
 import chat.tamtam.botapi.queries.SendMessageQuery;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 
 import java.io.ByteArrayInputStream;
@@ -28,8 +29,6 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.*;
 
-import static java.util.Map.entry;
-
 @Controller
 @Slf4j
 public class UpdateController {
@@ -38,19 +37,23 @@ public class UpdateController {
     private final ProguserChatService proguserChatService;
     private final CommandParser commandParser;
     private final AnswerFormatter answerFormatter;
-    private final ZlibCompressor compressor;
+    private final FileCompressor compressor;
+    private final Utils utils;
     private TamtamBot tamtamBot;
+    @Value("${spring.datasource.url}")
+    private String dbUrl;
 
     @Autowired
     public UpdateController(IssueService issueService, WorkerService workerService,
                             ProguserChatService proguserChatService, CommandParser commandParser,
-                            AnswerFormatter answerFormatter, ZlibCompressor compressor) {
+                            AnswerFormatter answerFormatter, FileCompressor compressor, Utils utils) {
         this.issueService = issueService;
         this.workerService = workerService;
         this.proguserChatService = proguserChatService;
         this.commandParser = commandParser;
         this.answerFormatter = answerFormatter;
         this.compressor = compressor;
+        this.utils = utils;
     }
 
     public void registerBot(TamtamBot tamtamBot) {
@@ -79,13 +82,12 @@ public class UpdateController {
         }
 
         String[] commandArgs = parsedCommand.getText().split(" ");
-        if (commandArgs[0].charAt(0) == '#' && isDigit(commandArgs[0].substring(1))) {
+        if (commandArgs[0].charAt(0) == '#' && utils.isDigit(commandArgs[0].substring(1))) {
             String IssueId = commandArgs[0].substring(1);
             log.info("Try to get issue info by id = " + IssueId);
             try {
                 String answerText;
                 Issue issue = issueService.getIssueById(Integer.parseInt(IssueId));
-                AttachmentsCarrier attachmentsCarrier = createAttachments(issue.getIssueAppendices());
                 if (commandArgs.length == 1) {
                     answerText = answerFormatter.getAnswerForShowCommand(issue);
                 } else if (commandArgs.length == 2 && Objects.equals(commandArgs[1].trim(), "short")) {
@@ -98,8 +100,12 @@ public class UpdateController {
                     processHelpCommand(message);
                     return;
                 }
+
+                AttachmentsCarrier attachmentsCarrier = createAttachments(issue.getIssueAppendices());
+
+
                 if (answerText.length() > 4000) {
-                    List<String> answerTextList = answerTextToStringList(answerText);
+                    List<String> answerTextList = utils.answerTextToStringList(answerText);
                     for (int i = 0; i < answerTextList.size() - 1; i++) {
                         NewMessageBody answer = NewMessageBodyBuilder
                                 .ofText(answerTextList.get(i))
@@ -132,7 +138,17 @@ public class UpdateController {
                             .build();
                     SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
                             .chatId(message.getRecipient().getChatId());
+
                     createSendMessageWithAttachmentsQuery(query);
+                }
+
+                for (String uncPath : attachmentsCarrier.getUncPaths()) {
+                    NewMessageBody answer = NewMessageBodyBuilder
+                            .ofText(answerFormatter.getLinkAnswer(uncPath), TextFormat.HTML)
+                            .build();
+                    SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
+                            .chatId(message.getRecipient().getChatId());
+                    tamtamBot.sendAnswerMessage(query);
                 }
             } catch (ResourceNotFoundException e) {
                 log.debug(e.getMessage());
@@ -164,7 +180,7 @@ public class UpdateController {
 //        }
 
         NewMessageBody answer = NewMessageBodyBuilder
-                .ofText("Введите команду /auth {пароль от gits} для аутентификации")
+                .ofText("Введите команду /auth {логин от gits} {пароль от gits} для аутентификации")
                 .build();
         SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer).chatId(update.getChatId());
         tamtamBot.sendAnswerMessage(query);
@@ -216,8 +232,7 @@ public class UpdateController {
         String password = commandArgs[1].trim();
         log.info("Try to auth");
         try {
-            DriverManager.getConnection("jdbc:firebirdsql://10.15.3.43:3050/gits_test" +
-                    "?authPlugins=Legacy_Auth", username, password);
+            DriverManager.getConnection(dbUrl, username, password);
             proguserChatService.insertProguserChat(username, chatId);
             log.debug("User with chatId = " + chatId + "has been authorized");
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
@@ -226,11 +241,11 @@ public class UpdateController {
         } catch (SQLException e) {
             log.debug("Incorrect password");
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
-                    "Неверный логин или пароль"));
+                    "Неверный пароль"));
         } catch (ResourceNotFoundException e) {
             log.debug(e.getMessage());
             tamtamBot.sendAnswerMessage(createSendMessageQuery(Long.valueOf(chatId),
-                    "Proguser с именем " + username + "не найден"));
+                    "Proguser с именем " + username + " не найден"));
         }
     }
 
@@ -314,20 +329,23 @@ public class UpdateController {
         return new SendMessageQuery(tamtamBot.getClient(), answer).chatId(chatId);
     }
 
-    private void createSendMessageWithAttachmentsQuery(SendMessageQuery query) throws InterruptedException {
+    private void createSendMessageWithAttachmentsQuery(SendMessageQuery query) throws InterruptedException, ClientException {
         boolean flag = true;
         while (flag) {
             log.info("Try to send message with attachment");
-            Thread.sleep(100);
+            Thread.sleep(500);
             try {
                 query.execute();
                 flag = false;
             } catch (ClientException | APIException e) {
-                System.out.println(e.getMessage());
-                if (!e.getMessage().contains("errors.process.attachment.file.not.processed")) {
+                if (!e.getMessage().contains("You cannot send message with unprocessed attachment")) {
                     flag = false;
                 }
                 log.warn(e.getMessage());
+            } catch (RuntimeException e) {
+                log.warn(e.getMessage());
+                tamtamBot.sendAnswerMessage(createSendMessageQuery(query.chatId.getValue(),
+                        answerFormatter.getAnswerOnError(e)));
             }
         }
     }
@@ -341,16 +359,23 @@ public class UpdateController {
         TamTamUploadAPI uploadAPI = new TamTamUploadAPI(tamtamBot.getClient());
         List<String> tokens = new ArrayList<>();
         List<UploadedInfo> uploadedInfos = new ArrayList<>();
+        List<String> uncPaths = new ArrayList<>();
         for (IssueAppendix appendix : appendices) {
+            if (appendix.getIssueAppendixLinkpath() != null) {
+                uncPaths.add(appendix.getIssueAppendixLinkpath());
+                continue;
+            }
+
             byte[] content = appendix.getIssueAppendixContent();
             if (content == null) {
                 continue;
             }
+
             String name = appendix.getIssueAppendixName();
-            String format = cutFileFormat(name);
+            String format = utils.cutFileFormat(name);
             ByteArrayInputStream bais = new ByteArrayInputStream(content);
 //            File file = new File(fileNameToLat(name));
-            File file = File.createTempFile(fileNameToLat(cutFileName(name)), "." + format);
+            File file = File.createTempFile(utils.fileNameToLat(utils.cutFileName(name)), "." + format);
             compressor.decompressFile(bais, file);
             if (Set.of("png", "bmp", "jpg", "jpeg", "gif").contains(format.toLowerCase())) {
                 UploadEndpoint endpoint = botAPI.getUploadUrl(UploadType.IMAGE).execute();
@@ -368,7 +393,7 @@ public class UpdateController {
             }
         }
         AttachmentsBuilder builder = AttachmentsBuilder.photos(tokens.toArray(new String[0]));
-        return new AttachmentsCarrier(builder, uploadedInfos);
+        return new AttachmentsCarrier(builder, uploadedInfos, uncPaths);
     }
 
     private boolean isChatIdAuthorized(String chatId) throws ClientException {
@@ -380,93 +405,5 @@ public class UpdateController {
                     "У Вас нет доступа"));
             return false;
         }
-    }
-
-    private String cutFileFormat(String fileName) {
-        int dotIndex = fileName.indexOf('.');
-        for (int i = 0; i < fileName.length(); i++) {
-            if (fileName.charAt(i) == '.') {
-                dotIndex = i;
-            }
-        }
-        return fileName.substring(dotIndex + 1);
-    }
-
-    private String cutFileName(String fileName) {
-        int dotIndex = fileName.indexOf('.');
-        for (int i = 0; i < fileName.length(); i++) {
-            if (fileName.charAt(i) == '.') {
-                dotIndex = i;
-            }
-        }
-        return fileName.substring(0, dotIndex);
-    }
-
-    private List<String> answerTextToStringList(String answerText) {
-        List<String> output = new ArrayList<>();
-        for (int i = 0; i < answerText.length(); i += 4000) {
-            if (i + 4000 > answerText.length()) {
-                output.add(answerText.substring(i));
-            } else {
-                output.add(answerText.substring(i, i + 4000));
-            }
-        }
-        return output;
-    }
-
-    private boolean isDigit(String s) {
-        try {
-            Integer.parseInt(s);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-        }
-    }
-
-    private String fileNameToLat(String fileName) {
-        Map<String, String> map = Map.ofEntries(
-                entry("а", "a"),
-                entry("б", "b"),
-                entry("в", "v"),
-                entry("г", "g"),
-                entry("д", "d"),
-                entry("е", "e"),
-                entry("ё", "yo"),
-                entry("ж", "zh"),
-                entry("з", "z"),
-                entry("и", "i"),
-                entry("й", "j"),
-                entry("к", "k"),
-                entry("л", "l"),
-                entry("м", "m"),
-                entry("н", "n"),
-                entry("о", "o"),
-                entry("п", "p"),
-                entry("р", "r"),
-                entry("с", "s"),
-                entry("т", "t"),
-                entry("у", "u"),
-                entry("ф", "f"),
-                entry("х", "h"),
-                entry("ц", "ts"),
-                entry("ч", "ch"),
-                entry("ш", "sh"),
-                entry("ъ", "'"),
-                entry("ы", "i"),
-                entry("ь", "'"),
-                entry("э", "e"),
-                entry("ю", "yu"),
-                entry("я", "ya"),
-                entry("№", "nomer"));
-        String answer = "";
-        fileName = fileName.toLowerCase();
-        for (char c : fileName.toCharArray()) {
-            if (map.containsKey(String.valueOf(c))) {
-                answer += map.get(String.valueOf(c));
-            } else {
-                answer += String.valueOf(c);
-            }
-        }
-        return answer;
     }
 }

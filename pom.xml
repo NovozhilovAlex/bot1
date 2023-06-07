@@ -3,7 +3,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>ru.yumeno</groupId>
+    <groupId>biz.gelicon.gits</groupId>
     <artifactId>gits-auto-bot</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>gits-auto-bot</name>
@@ -22,6 +22,9 @@
         <firebird.version>5.0.1.java11</firebird.version>
         <tamtambot.version>0.0.2</tamtambot.version>
         <hibernateDialects.version>6.1.7.Final</hibernateDialects.version>
+        <hashids.version>1.0.1</hashids.version>
+        <commons-compress.version>1.22</commons-compress.version>
+        <jjwt.version>0.9.1</jjwt.version>
     </properties>
 
     <dependencies>
@@ -72,6 +75,24 @@
             <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-community-dialects</artifactId>
             <version>${hibernateDialects.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>${commons-compress.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.hashids</groupId>
+            <artifactId>hashids</artifactId>
+            <version>${hashids.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt</artifactId>
+            <version>${jjwt.version}</version>
         </dependency>
     </dependencies>
 

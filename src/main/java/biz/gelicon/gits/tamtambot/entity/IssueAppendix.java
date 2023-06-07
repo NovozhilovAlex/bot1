@@ -15,6 +15,8 @@ public class IssueAppendix {
     private String issueAppendixName;
     @Column(name = "ERRORAPPENDIX_CONTENT")
     private byte[] issueAppendixContent;
+    @Column(name = "ERRORAPPENDIX_LINKPATH")
+    private String issueAppendixLinkpath;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ERROR_ID", insertable = false, updatable = false)
     private Issue issue;

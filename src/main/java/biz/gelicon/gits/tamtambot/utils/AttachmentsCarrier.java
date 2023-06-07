@@ -12,4 +12,5 @@ import java.util.List;
 public class AttachmentsCarrier {
     private AttachmentsBuilder images;
     private List<UploadedInfo> files;
+    private List<String> uncPaths;
 }
