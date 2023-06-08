@@ -92,7 +92,7 @@ public class Utils {
             if (map.containsKey(String.valueOf(c))) {
                 answer.append(map.get(String.valueOf(c)));
             } else {
-                answer.append(String.valueOf(c));
+                answer.append(c);
             }
         }
         return answer.toString();

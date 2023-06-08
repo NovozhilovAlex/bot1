@@ -24,7 +24,6 @@ public class JwtTokenProvider {
         Date expiredDate = new Date(issuedDate.getTime() + jwtLifeTime.toMillis());
         return Jwts.builder()
                 .setClaims(claims)
-                .setSubject("user")
                 .setIssuedAt(issuedDate)
                 .setExpiration(expiredDate)
                 .signWith(SignatureAlgorithm.HS256, secret)
