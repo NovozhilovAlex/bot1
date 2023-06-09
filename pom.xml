@@ -22,7 +22,6 @@
         <firebird.version>5.0.1.java11</firebird.version>
         <tamtambot.version>0.0.2</tamtambot.version>
         <hibernateDialects.version>6.1.7.Final</hibernateDialects.version>
-        <hashids.version>1.0.1</hashids.version>
         <commons-compress.version>1.22</commons-compress.version>
         <jjwt.version>0.9.1</jjwt.version>
     </properties>
@@ -81,12 +80,6 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-compress</artifactId>
             <version>${commons-compress.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.hashids</groupId>
-            <artifactId>hashids</artifactId>
-            <version>${hashids.version}</version>
         </dependency>
 
         <dependency>

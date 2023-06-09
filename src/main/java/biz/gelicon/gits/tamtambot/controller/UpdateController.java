@@ -168,17 +168,6 @@ public class UpdateController {
     }
 
     public void processBotStartedUpdate(BotStartedUpdate update) throws ClientException {
-//        try {
-//            String chatId = String.valueOf(update.getChatId());
-//            String username = update.getUser().getUsername();
-//            proguserChatService.insertProguserChat(username.substring(8).toUpperCase(), chatId);
-//        } catch (ResourceNotFoundException e) {
-//            log.debug(e.getMessage());
-//            tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getChatId(),
-//                    "Proguser с именем " + update.getUser().getUsername().substring(8).toUpperCase() +
-//                            "не найден"));
-//        }
-
         NewMessageBody answer = NewMessageBodyBuilder
                 .ofText("Введите команду /auth {логин от gits} {пароль от gits} для аутентификации")
                 .build();
@@ -318,6 +307,9 @@ public class UpdateController {
     }
 
     public void processMessageCreatedUpdate(MessageCreatedUpdate update) throws ClientException {
+        if (update.getMessage().getRecipient().getChatType() == ChatType.CHAT) {
+            System.out.println(update.getMessage().getRecipient().getChatId());
+        }
         if (update.getMessage().getRecipient().getChatType() != ChatType.DIALOG) {
             return;
         }

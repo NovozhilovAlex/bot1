@@ -85,7 +85,7 @@ public class AnswerFormatter {
         String separator = "\\";
         String[] uncPathArray = uncPath.replaceAll(Pattern.quote(separator), "\\\\").split("\\\\");
         String uncPathHash = jwtTokenProvider.generateToken(uncPath);
-        return "<a href=" + '"' + "http://" + linkAddress + "?token=" + uncPathHash + '"' + ">" +
+        return "<a href=" + '"' + "http://" + linkAddress + uncPathHash + '"' + ">" +
                 uncPathArray[uncPathArray.length - 1] + "</a>";
     }
 

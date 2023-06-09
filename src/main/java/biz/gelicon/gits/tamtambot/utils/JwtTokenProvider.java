@@ -18,6 +18,9 @@ public class JwtTokenProvider {
     private Duration jwtLifeTime;
 
     public String generateToken(String uncPath) {
+        if (uncPath == null) {
+            throw new NullPointerException();
+        }
         Map<String, Object> claims = new HashMap<>();
         claims.put("uncPath", uncPath);
         Date issuedDate = new Date();
