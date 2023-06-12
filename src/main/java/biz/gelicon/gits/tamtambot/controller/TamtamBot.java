@@ -3,7 +3,6 @@ package biz.gelicon.gits.tamtambot.controller;
 import chat.tamtam.bot.annotations.CommandHandler;
 import chat.tamtam.bot.annotations.UpdateHandler;
 import chat.tamtam.bot.longpolling.LongPollingBot;
-import chat.tamtam.botapi.exceptions.APIException;
 import chat.tamtam.botapi.exceptions.ClientException;
 import chat.tamtam.botapi.model.BotStartedUpdate;
 import chat.tamtam.botapi.model.Message;

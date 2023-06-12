@@ -3,44 +3,51 @@ package biz.gelicon.gits.tamtambot.utils;
 import biz.gelicon.gits.tamtambot.entity.Issue;
 import biz.gelicon.gits.tamtambot.entity.IssueStatus;
 import biz.gelicon.gits.tamtambot.entity.IssueTransit;
+import biz.gelicon.gits.tamtambot.service.IssueService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.Charset;
 import java.util.List;
-import java.util.regex.Pattern;
 
 @Component
 public class AnswerFormatter {
     private final String SEPARATOR = "----------------------------------------------------------------" +
             "------------------------------------------\n";
+    private final IssueService issueService;
+
+    @Autowired
+    public AnswerFormatter(IssueService issueService) {
+        this.issueService = issueService;
+    }
 
     public String getAnswerForShowCommand(Issue issue) {
         StringBuilder answer = new StringBuilder("<h1>" + issue.getIssueText() + "</h1>" + "\n");
         List<IssueTransit> issueTransits = issue.getIssueTransits();
-        for (int i = 0; i < issueTransits.size(); i++) {
+        IssueStatus issueStatus = issueService.getIssueStatusByIssueId(issue.getIssueId());
+        for (IssueTransit issueTransit : issueTransits) {
             String text = "";
-            if (issueTransits.get(i).getIssueTransitText() != null) {
+            if (issueTransit.getIssueTransitText() != null) {
                 Charset w1251 = Charset.forName("Windows-1251");
-                text = new String(issueTransits.get(i).getIssueTransitText(), w1251);
+                text = new String(issueTransit.getIssueTransitText(), w1251);
             }
-            if (i == issueTransits.size() - 1) {
-                answer.append("<mark>").append(SEPARATOR).append(issueTransits.get(i).getIssueTransitType().getIssueTransitTypeName().trim())
-                        .append(", От кого: ").append(issueTransits.get(i).getFromWorker().getWorkerFamily().trim())
-                        .append(", Кому: ").append(issueTransits.get(i).getWorker().getWorkerFamily().trim()).append(", ")
-                        .append(issueTransits.get(i).getIssueTransitDate()).append("\n");
-                if (issueTransits.get(i).getIssueTransitDateNeed() != null) {
-                    answer.append("Исправить до: ").append(issueTransits.get(i).getIssueTransitDateNeed()).append("\n");
+            if (issueStatus.getIssueTransitId() == issueTransit.getIssueTransitId()) {
+                answer.append("<b>").append(SEPARATOR).append(issueTransit.getIssueTransitType()
+                                .getIssueTransitTypeName().trim())
+                        .append(", От кого: ").append(issueTransit.getFromWorker().getWorkerFamily().trim())
+                        .append(", Кому: ").append(issueTransit.getWorker().getWorkerFamily().trim()).append(", ")
+                        .append(issueTransit.getIssueTransitDate()).append("\n");
+                if (issueTransit.getIssueTransitDateNeed() != null) {
+                    answer.append("Исправить до: ").append(issueTransit.getIssueTransitDateNeed()).append("\n");
                 }
-                answer.append(SEPARATOR).append("</mark>").append(text).append("\n");
+                answer.append(SEPARATOR).append("</b>").append(text).append("\n");
             } else {
-                answer.append(SEPARATOR).append(issueTransits.get(i).getIssueTransitType().getIssueTransitTypeName().trim())
-                        .append(", От кого: ").append(issueTransits.get(i).getFromWorker().getWorkerFamily().trim())
-                        .append(", Кому: ").append(issueTransits.get(i).getWorker().getWorkerFamily().trim()).append(", ")
-                        .append(issueTransits.get(i).getIssueTransitDate()).append("\n");
-                if (issueTransits.get(i).getIssueTransitDateNeed() != null) {
-                    answer.append("Исправить до: ").append(issueTransits.get(i).getIssueTransitDateNeed()).append("\n");
+                answer.append(SEPARATOR).append(issueTransit.getIssueTransitType().getIssueTransitTypeName().trim())
+                        .append(", От кого: ").append(issueTransit.getFromWorker().getWorkerFamily().trim())
+                        .append(", Кому: ").append(issueTransit.getWorker().getWorkerFamily().trim()).append(", ")
+                        .append(issueTransit.getIssueTransitDate()).append("\n");
+                if (issueTransit.getIssueTransitDateNeed() != null) {
+                    answer.append("Исправить до: ").append(issueTransit.getIssueTransitDateNeed()).append("\n");
                 }
                 answer.append(SEPARATOR).append(text).append("\n");
             }

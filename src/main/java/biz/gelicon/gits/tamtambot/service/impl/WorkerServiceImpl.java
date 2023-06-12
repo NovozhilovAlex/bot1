@@ -3,7 +3,6 @@ package biz.gelicon.gits.tamtambot.service.impl;
 import biz.gelicon.gits.tamtambot.entity.Issue;
 import biz.gelicon.gits.tamtambot.entity.ProguserChat;
 import biz.gelicon.gits.tamtambot.entity.ProguserWorker;
-import biz.gelicon.gits.tamtambot.entity.Worker;
 import biz.gelicon.gits.tamtambot.exceptions.ResourceNotFoundException;
 import biz.gelicon.gits.tamtambot.repository.IssueRepository;
 import biz.gelicon.gits.tamtambot.repository.ProguserChatRepository;

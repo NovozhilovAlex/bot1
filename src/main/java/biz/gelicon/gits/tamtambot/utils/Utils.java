@@ -50,6 +50,7 @@ public class Utils {
             return false;
         }
     }
+
     public String fileNameToLat(String fileName) {
         Map<String, String> map = Map.ofEntries(
                 entry("а", "a"),

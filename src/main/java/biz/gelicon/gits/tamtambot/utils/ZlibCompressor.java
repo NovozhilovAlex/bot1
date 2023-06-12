@@ -16,6 +16,7 @@ public class ZlibCompressor implements FileCompressor {
             out.write(buffer, 0, len);
         }
     }
+
     @Override
     public void decompressFile(InputStream compressed, File raw) throws IOException {
         InputStream in =

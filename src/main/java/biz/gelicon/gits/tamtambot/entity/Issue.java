@@ -35,4 +35,5 @@ public class Issue {
     @OneToMany()
     @JoinColumn(name = "ERROR_ID")
     private List<IssueAppendix> issueAppendices;
+
 }
