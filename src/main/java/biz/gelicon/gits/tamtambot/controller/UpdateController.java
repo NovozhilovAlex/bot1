@@ -140,7 +140,6 @@ public class UpdateController {
                     createSendMessageWithAttachmentsQuery(query);
                 }
 
-
                 for (String uncPath : attachmentsCarrier.getUncPaths()) {
                     NewMessageBody answer = NewMessageBodyBuilder
                             .ofText(answerFormatter.getLinkAnswer(uncPath), TextFormat.MARKDOWN)
@@ -181,7 +180,9 @@ public class UpdateController {
                         "/help - Список команд\n" +
                         "/show #{номер_задачи} - Содержание задачи\n" +
                         "/show #{номер_задачи} short - Краткое содержание задачи\n" +
-                        "/inbox - Список всех Ваших задач")
+                        "/inbox - Список всех Ваших задач\n\n" +
+                        "Для доступа к вложениям, прикрепленным в виде" +
+                        " unc-пути, скопируйте их путь, вставьте в строку Быстрый доступ в проводнике и нажмите Enter")
                 .withAttachments(AttachmentsBuilder
                         .inlineKeyboard(InlineKeyboardBuilder
                                 .singleRow(btn)))

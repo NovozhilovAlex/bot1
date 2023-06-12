@@ -56,7 +56,7 @@ public class AnswerFormatter {
                 transit = t;
             }
         }
-        String answer = issue.getIssueText() + "\n";
+        String answer = "<h1>" + issue.getIssueText() + "</h1>" + "\n";
         String text = "";
         if (transit.getIssueTransitText() != null) {
             Charset w1251 = Charset.forName("Windows-1251");
