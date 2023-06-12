@@ -15,32 +15,35 @@ import java.util.regex.Pattern;
 public class AnswerFormatter {
     private final String SEPARATOR = "----------------------------------------------------------------" +
             "------------------------------------------\n";
-    @Value("${link.address}")
-    private String linkAddress;
-    private final JwtTokenProvider jwtTokenProvider;
-
-    @Autowired
-    public AnswerFormatter(JwtTokenProvider jwtTokenProvider) {
-        this.jwtTokenProvider = jwtTokenProvider;
-    }
 
     public String getAnswerForShowCommand(Issue issue) {
-        StringBuilder answer = new StringBuilder(issue.getIssueText() + "\n");
+        StringBuilder answer = new StringBuilder("<h1>" + issue.getIssueText() + "</h1>" + "\n");
         List<IssueTransit> issueTransits = issue.getIssueTransits();
-        for (IssueTransit transit : issueTransits) {
+        for (int i = 0; i < issueTransits.size(); i++) {
             String text = "";
-            if (transit.getIssueTransitText() != null) {
+            if (issueTransits.get(i).getIssueTransitText() != null) {
                 Charset w1251 = Charset.forName("Windows-1251");
-                text = new String(transit.getIssueTransitText(), w1251);
+                text = new String(issueTransits.get(i).getIssueTransitText(), w1251);
             }
-            answer.append(SEPARATOR).append(transit.getIssueTransitType().getIssueTransitTypeName().trim())
-                    .append(", От кого: ").append(transit.getFromWorker().getWorkerFamily().trim())
-                    .append(", Кому: ").append(transit.getWorker().getWorkerFamily().trim()).append(", ")
-                    .append(transit.getIssueTransitDate()).append("\n");
-            if (transit.getIssueTransitDateNeed() != null) {
-                answer.append("Исправить до: ").append(transit.getIssueTransitDateNeed()).append("\n");
+            if (i == issueTransits.size() - 1) {
+                answer.append("<mark>").append(SEPARATOR).append(issueTransits.get(i).getIssueTransitType().getIssueTransitTypeName().trim())
+                        .append(", От кого: ").append(issueTransits.get(i).getFromWorker().getWorkerFamily().trim())
+                        .append(", Кому: ").append(issueTransits.get(i).getWorker().getWorkerFamily().trim()).append(", ")
+                        .append(issueTransits.get(i).getIssueTransitDate()).append("\n");
+                if (issueTransits.get(i).getIssueTransitDateNeed() != null) {
+                    answer.append("Исправить до: ").append(issueTransits.get(i).getIssueTransitDateNeed()).append("\n");
+                }
+                answer.append(SEPARATOR).append("</mark>").append(text).append("\n");
+            } else {
+                answer.append(SEPARATOR).append(issueTransits.get(i).getIssueTransitType().getIssueTransitTypeName().trim())
+                        .append(", От кого: ").append(issueTransits.get(i).getFromWorker().getWorkerFamily().trim())
+                        .append(", Кому: ").append(issueTransits.get(i).getWorker().getWorkerFamily().trim()).append(", ")
+                        .append(issueTransits.get(i).getIssueTransitDate()).append("\n");
+                if (issueTransits.get(i).getIssueTransitDateNeed() != null) {
+                    answer.append("Исправить до: ").append(issueTransits.get(i).getIssueTransitDateNeed()).append("\n");
+                }
+                answer.append(SEPARATOR).append(text).append("\n");
             }
-            answer.append(SEPARATOR).append(text).append("\n");
         }
         return answer.toString();
     }
@@ -82,14 +85,10 @@ public class AnswerFormatter {
     }
 
     public String getLinkAnswer(String uncPath) {
-        String separator = "\\";
-        String[] uncPathArray = uncPath.replaceAll(Pattern.quote(separator), "\\\\").split("\\\\");
-        String uncPathHash = jwtTokenProvider.generateToken(uncPath);
-        return "<a href=" + '"' + "http://" + linkAddress + uncPathHash + '"' + ">" +
-                uncPathArray[uncPathArray.length - 1] + "</a>";
+        return "*\\" + uncPath + "*";
     }
 
     public String getAnswerOnError(Exception e) {
-        return "Ой, что то мне поплохело. Причина: " + e.getMessage();
+        return "Ой, что-то мне поплохело. Причина: " + e.getMessage();
     }
 }

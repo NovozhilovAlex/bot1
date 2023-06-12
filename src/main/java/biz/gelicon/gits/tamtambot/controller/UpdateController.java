@@ -102,20 +102,18 @@ public class UpdateController {
                 }
 
                 AttachmentsCarrier attachmentsCarrier = createAttachments(issue.getIssueAppendices());
-
-
                 if (answerText.length() > 4000) {
                     List<String> answerTextList = utils.answerTextToStringList(answerText);
                     for (int i = 0; i < answerTextList.size() - 1; i++) {
                         NewMessageBody answer = NewMessageBodyBuilder
-                                .ofText(answerTextList.get(i))
+                                .ofText(answerTextList.get(i), TextFormat.HTML)
                                 .build();
                         SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
                                 .chatId(message.getRecipient().getChatId());
                         createSendMessageWithAttachmentsQuery(query);
                     }
                     NewMessageBody answer = NewMessageBodyBuilder
-                            .ofText(answerTextList.get(answerTextList.size() - 1))
+                            .ofText(answerTextList.get(answerTextList.size() - 1), TextFormat.HTML)
                             .withAttachments(attachmentsCarrier.getImages())
                             .build();
                     SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
@@ -123,7 +121,7 @@ public class UpdateController {
                     createSendMessageWithAttachmentsQuery(query);
                 } else {
                     NewMessageBody answer = NewMessageBodyBuilder
-                            .ofText(answerText)
+                            .ofText(answerText, TextFormat.HTML)
                             .withAttachments(attachmentsCarrier.getImages())
                             .build();
                     SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
@@ -142,9 +140,10 @@ public class UpdateController {
                     createSendMessageWithAttachmentsQuery(query);
                 }
 
+
                 for (String uncPath : attachmentsCarrier.getUncPaths()) {
                     NewMessageBody answer = NewMessageBodyBuilder
-                            .ofText(answerFormatter.getLinkAnswer(uncPath), TextFormat.HTML)
+                            .ofText(answerFormatter.getLinkAnswer(uncPath), TextFormat.MARKDOWN)
                             .build();
                     SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
                             .chatId(message.getRecipient().getChatId());
@@ -317,7 +316,7 @@ public class UpdateController {
     }
 
     private SendMessageQuery createSendMessageQuery(Long chatId, String text) {
-        NewMessageBody answer = NewMessageBodyBuilder.ofText(text).build();
+        NewMessageBody answer = NewMessageBodyBuilder.ofText(text, TextFormat.HTML).build();
         return new SendMessageQuery(tamtamBot.getClient(), answer).chatId(chatId);
     }
 
