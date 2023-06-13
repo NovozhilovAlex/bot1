@@ -11,12 +11,12 @@ import java.util.Optional;
 
 @Repository
 public interface ProguserChatRepository extends JpaRepository<ProguserChat, Integer> {
-    Optional<ProguserChat> findByChatId(String chatId);
+    Optional<ProguserChat> findByUserId(String userId);
 
     @Modifying
     @Transactional
-    @Query(value = "INSERT INTO PROGUSERCHAT (PROGUSERCHAT_ID, PROGUSER_ID, TYPE_IM_ID, CHATID) " +
+    @Query(value = "INSERT INTO PROGUSERCHAT (PROGUSERCHAT_ID, PROGUSER_ID, TYPE_IM_ID, USERID) " +
             "VALUES (next value FOR PROGUSERCHAT_ID_GEN, ?1,  ?2, ?3)",
             nativeQuery = true)
-    void insert(int proguserId, int typeImId, String chatId);
+    void insert(int proguserId, int typeImId, String userId);
 }

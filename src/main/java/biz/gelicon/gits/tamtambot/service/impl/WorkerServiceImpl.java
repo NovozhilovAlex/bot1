@@ -34,8 +34,8 @@ public class WorkerServiceImpl implements WorkerService {
     }
 
     @Override
-    public List<Issue> getIssuesByChatId(String chatId) {
-        Optional<ProguserChat> optional = proguserChatRepository.findByChatId(chatId);
+    public List<Issue> getIssuesByUserId(String userId) {
+        Optional<ProguserChat> optional = proguserChatRepository.findByUserId(userId);
         if (optional.isPresent()) {
             ProguserChat proguserChat = optional.get();
             int proguserId = proguserChat.getProguserId();
@@ -47,7 +47,7 @@ public class WorkerServiceImpl implements WorkerService {
                 throw new ResourceNotFoundException("ProguserWorker not exist with proguserId = " + proguserId);
             }
         } else {
-            throw new ResourceNotFoundException("ProguserChat not exist with chatId = " + chatId);
+            throw new ResourceNotFoundException("ProguserChat not exist with userId = " + userId);
         }
     }
 }

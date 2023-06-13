@@ -12,9 +12,6 @@ public class IssueTransit {
     @Id
     @Column(name = "ERRORTRANSIT_ID")
     private int issueTransitId;
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ERROR_ID", insertable = false, updatable = false)
-    private Issue issue;
     @Column(name = "ERRORTRANSIT_DATE")
     private LocalDateTime issueTransitDate;
     @Column(name = "ERRORTRANSIT_DATENEED")
@@ -30,6 +27,9 @@ public class IssueTransit {
     @ManyToOne
     @JoinColumn(name = "ERRORTRANSITTYPE_ID")
     private IssueTransitType issueTransitType;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ERROR_ID", referencedColumnName = "ERROR_ID", insertable = false, updatable = false)
+    private Issue issue;
 //    @OneToOne(mappedBy = "issueTransit")
 //    private IssueStatus status;
 }

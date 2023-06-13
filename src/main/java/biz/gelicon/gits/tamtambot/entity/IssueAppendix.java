@@ -18,6 +18,6 @@ public class IssueAppendix {
     @Column(name = "ERRORAPPENDIX_LINKPATH")
     private String issueAppendixLinkpath;
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ERROR_ID", insertable = false, updatable = false)
+    @JoinColumn(name = "ERROR_ID", referencedColumnName = "ERROR_ID", insertable = false, updatable = false)
     private Issue issue;
 }

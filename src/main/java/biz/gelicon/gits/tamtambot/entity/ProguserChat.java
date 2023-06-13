@@ -17,6 +17,6 @@ public class ProguserChat {
     private int proguserId;
     @Column(name = "TYPE_IM_ID")
     private int typeImId;
-    @Column(name = "CHATID")
-    private String chatId;
+    @Column(name = "USERID")
+    private String userId;
 }

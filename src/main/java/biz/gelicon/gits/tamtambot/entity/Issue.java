@@ -27,13 +27,10 @@ public class Issue {
     private LocalDateTime issueDateNeed;
     @Column(name = "ERROR_PRIORITY")
     private String issuePriority;
-    @LazyCollection(LazyCollectionOption.FALSE)
-    @OneToMany()
-    @JoinColumn(name = "ERROR_ID")
+    @LazyCollection(LazyCollectionOption.TRUE)
+    @OneToMany(mappedBy = "issue")
     private List<IssueTransit> issueTransits;
-    @LazyCollection(LazyCollectionOption.FALSE)
-    @OneToMany()
-    @JoinColumn(name = "ERROR_ID")
+    @LazyCollection(LazyCollectionOption.TRUE)
+    @OneToMany(mappedBy = "issue")
     private List<IssueAppendix> issueAppendices;
-
 }

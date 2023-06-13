@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 
+import javax.transaction.Transactional;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -60,9 +61,12 @@ public class UpdateController {
         this.tamtamBot = tamtamBot;
     }
 
+    @Transactional
     public void processShowCommand(Message message) throws ClientException {
-        String chatId = String.valueOf(message.getRecipient().getChatId());
-        if (!isChatIdAuthorized(chatId)) {
+        String userId = String.valueOf(message.getSender().getUserId());
+        if (!isUserIdAuthorized(userId)) {
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                    "У Вас нет доступа"));
             return;
         }
 
@@ -193,7 +197,7 @@ public class UpdateController {
     }
 
     public void processAuthCommand(Message message) throws ClientException {
-        String chatId = String.valueOf(message.getRecipient().getChatId());
+        String userId = String.valueOf(message.getSender().getUserId());
 
         String messageText = message.getBody().getText();
         if (messageText == null) {
@@ -222,8 +226,8 @@ public class UpdateController {
         log.info("Try to auth");
         try {
             DriverManager.getConnection(dbUrl, username, password);
-            proguserChatService.insertProguserChat(username, chatId);
-            log.debug("User with chatId = " + chatId + "has been authorized");
+            proguserChatService.insertProguserChat(username, userId);
+            log.debug("User with userId = " + userId + " has been authorized");
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
                     "Вы успешно авторизовались"));
             processHelpCommand(message);
@@ -233,14 +237,17 @@ public class UpdateController {
                     "Неверный пароль"));
         } catch (ResourceNotFoundException e) {
             log.debug(e.getMessage());
-            tamtamBot.sendAnswerMessage(createSendMessageQuery(Long.valueOf(chatId),
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(Long.valueOf(userId),
                     "Proguser с именем " + username + " не найден"));
         }
     }
 
     public void processInboxCommand(Message message) throws ClientException {
-        String chatId = String.valueOf(message.getRecipient().getChatId());
-        if (!isChatIdAuthorized(chatId)) {
+        String userId = String.valueOf(message.getSender().getUserId());
+        System.out.println(userId);
+        if (!isUserIdAuthorized(userId)) {
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                    "У Вас нет доступа"));
             return;
         }
 
@@ -261,14 +268,23 @@ public class UpdateController {
 
         log.info("Try to get all issues");
         try {
-            List<Issue> issues = workerService.getIssuesByChatId(chatId);
+            List<Issue> issues = workerService.getIssuesByUserId(userId);
             if (issues.isEmpty()) {
                 tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
                         "У Вас сейчас нет задач"));
                 return;
             }
-            tamtamBot.sendAnswerMessage(createSendMessageQuery(
-                    message.getRecipient().getChatId(), answerFormatter.getAnswerForInboxCommand(issues)));
+            String answerText = answerFormatter.getAnswerForInboxCommand(issues);
+            if (answerText.length() > 4000) {
+                List<String> answerTextList = utils.answerTextToStringList(answerText);
+                for (String s : answerTextList) {
+                    tamtamBot.sendAnswerMessage(createSendMessageQuery(
+                            message.getRecipient().getChatId(), s));
+                }
+            } else {
+                tamtamBot.sendAnswerMessage(createSendMessageQuery(
+                        message.getRecipient().getChatId(), answerText));
+            }
         } catch (ResourceNotFoundException e) {
             log.debug(e.getMessage());
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
@@ -281,20 +297,33 @@ public class UpdateController {
     }
 
     public void processButtonPressed(MessageCallbackUpdate update) throws ClientException {
-        String chatId = String.valueOf(update.getMessage().getRecipient().getChatId());
-        if (!isChatIdAuthorized(chatId)) {
+        String userId = String.valueOf(update.getCallback().getUser().getUserId());
+        System.out.println(userId);
+        if (!isUserIdAuthorized(userId)) {
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getMessage().getRecipient().getChatId(),
+                    "У Вас нет доступа"));
             return;
         }
+
         log.info("Try to get all issues");
         try {
-            List<Issue> issues = workerService.getIssuesByChatId(chatId);
+            List<Issue> issues = workerService.getIssuesByUserId(userId);
             if (issues.isEmpty()) {
                 tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getMessage().getRecipient().getChatId(),
                         "У Вас сейчас нет задач"));
                 return;
             }
-            tamtamBot.sendAnswerMessage(createSendMessageQuery(
-                    update.getMessage().getRecipient().getChatId(), answerFormatter.getAnswerForInboxCommand(issues)));
+            String answerText = answerFormatter.getAnswerForInboxCommand(issues);
+            if (answerText.length() > 4000) {
+                List<String> answerTextList = utils.answerTextToStringList(answerText);
+                for (String s : answerTextList) {
+                    tamtamBot.sendAnswerMessage(createSendMessageQuery(
+                            update.getMessage().getRecipient().getChatId(), s));
+                }
+            } else {
+                tamtamBot.sendAnswerMessage(createSendMessageQuery(
+                        update.getMessage().getRecipient().getChatId(), answerText));
+            }
         } catch (ResourceNotFoundException e) {
             log.debug(e.getMessage());
             tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getMessage().getRecipient().getChatId(),
@@ -307,9 +336,6 @@ public class UpdateController {
     }
 
     public void processMessageCreatedUpdate(MessageCreatedUpdate update) throws ClientException {
-        if (update.getMessage().getRecipient().getChatType() == ChatType.CHAT) {
-            System.out.println(update.getMessage().getRecipient().getChatId());
-        }
         if (update.getMessage().getRecipient().getChatType() != ChatType.DIALOG) {
             return;
         }
@@ -388,13 +414,11 @@ public class UpdateController {
         return new AttachmentsCarrier(builder, uploadedInfos, uncPaths);
     }
 
-    private boolean isChatIdAuthorized(String chatId) throws ClientException {
-        if (proguserChatService.isProguserChatFindByChatId(chatId)) {
+    private boolean isUserIdAuthorized(String userId) {
+        if (proguserChatService.isProguserChatFindByUserId(userId)) {
             return true;
         } else {
-            log.debug("Unauthorized user, chatId = " + chatId);
-            tamtamBot.sendAnswerMessage(createSendMessageQuery(Long.valueOf(chatId),
-                    "У Вас нет доступа"));
+            log.debug("Unauthorized user, userId = " + userId);
             return false;
         }
     }

@@ -5,5 +5,5 @@ import biz.gelicon.gits.tamtambot.entity.Issue;
 import java.util.List;
 
 public interface WorkerService {
-    List<Issue> getIssuesByChatId(String chatId);
+    List<Issue> getIssuesByUserId(String userId);
 }

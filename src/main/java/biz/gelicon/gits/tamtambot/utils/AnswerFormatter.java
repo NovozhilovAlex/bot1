@@ -81,12 +81,11 @@ public class AnswerFormatter {
     }
 
     public String getAnswerForInboxCommand(List<Issue> Issues) {
-        StringBuilder answer = new StringBuilder(SEPARATOR + "\n");
+        StringBuilder answer = new StringBuilder(SEPARATOR);
         for (Issue issue : Issues) {
             answer.append("№: ").append(issue.getIssueId()).append(" | Наим-ие: ").append(issue.getIssueText())
                     .append(" | ").append(issue.getIssueDate()).append(" | Пр-т: ").append(issue.getIssuePriority())
-                    .append(" | Испр. до: ").append(issue.getIssueDateNeed()).append("\n").append(SEPARATOR)
-                    .append("\n");
+                    .append(" | Испр. до: ").append(issue.getIssueDateNeed()).append("\n").append(SEPARATOR);
         }
         return answer.toString();
     }

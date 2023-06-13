@@ -24,14 +24,14 @@ public class ProguserChatServiceImpl implements ProguserChatService {
     }
 
     @Override
-    public boolean isProguserChatFindByChatId(String chatId) {
-        Optional<ProguserChat> optional = proguserChatRepository.findByChatId(chatId);
+    public boolean isProguserChatFindByUserId(String userId) {
+        Optional<ProguserChat> optional = proguserChatRepository.findByUserId(userId);
         return optional.isPresent();
     }
 
     @Override
     public void insertProguserChat(String name, String chatId) {
-        if (isProguserChatFindByChatId(chatId)) {
+        if (isProguserChatFindByUserId(chatId)) {
             return;
         }
         Proguser proguser = findProguserByName(name);
