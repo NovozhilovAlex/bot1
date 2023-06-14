@@ -244,7 +244,6 @@ public class UpdateController {
 
     public void processInboxCommand(Message message) throws ClientException {
         String userId = String.valueOf(message.getSender().getUserId());
-        System.out.println(userId);
         if (!isUserIdAuthorized(userId)) {
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
                     "У Вас нет доступа"));
