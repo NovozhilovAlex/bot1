@@ -182,6 +182,7 @@ public class UpdateController {
         CallbackButton btn = new CallbackButton("btn pressed", "Все задачи");
         NewMessageBody answer = NewMessageBodyBuilder.ofText("Доступные команды:\n" +
                         "/auth {логин от gits} {пароль от gits} - Аутентификация\n" +
+                        "/logout - Выход\n" +
                         "/help - Список команд\n" +
                         "/show #{номер_задачи} - Содержание задачи\n" +
                         "/show #{номер_задачи} short - Краткое содержание задачи\n" +
