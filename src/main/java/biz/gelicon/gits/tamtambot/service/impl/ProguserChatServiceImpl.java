@@ -2,6 +2,7 @@ package biz.gelicon.gits.tamtambot.service.impl;
 
 import biz.gelicon.gits.tamtambot.entity.Proguser;
 import biz.gelicon.gits.tamtambot.entity.ProguserChat;
+import biz.gelicon.gits.tamtambot.exceptions.AlreadyAuthException;
 import biz.gelicon.gits.tamtambot.exceptions.ResourceNotFoundException;
 import biz.gelicon.gits.tamtambot.repository.ProguserChatRepository;
 import biz.gelicon.gits.tamtambot.repository.ProguserRepository;
@@ -30,20 +31,28 @@ public class ProguserChatServiceImpl implements ProguserChatService {
     }
 
     @Override
-    public void insertProguserChat(String name, String chatId) {
-        if (isProguserChatFindByUserId(chatId)) {
-            return;
+    public void insertProguserChat(String name, String userId) {
+        if (isProguserChatFindByUserId(userId)) {
+            throw new AlreadyAuthException("ProguserChat with userId = " + userId + "already authenticated");
         }
         Proguser proguser = findProguserByName(name);
-        proguserChatRepository.insert(proguser.getProguserId(), 1061, chatId);
+        proguserChatRepository.insert(proguser.getProguserId(), 1061, userId);
     }
 
-    private Proguser findProguserByName(String name) {
-        Optional<Proguser> optional = proguserRepository.findByProguserName(name);
+    @Override
+    public void deleteProguserChat(String userId) {
+        if (!isProguserChatFindByUserId(userId)) {
+            throw new ResourceNotFoundException("ProguserChat not found with userId = " + userId);
+        }
+        proguserChatRepository.deleteByUserId(userId);
+    }
+
+    private Proguser findProguserByName(String username) {
+        Optional<Proguser> optional = proguserRepository.findByProguserName(username);
         if (optional.isPresent()) {
             return optional.get();
         } else {
-            throw new ResourceNotFoundException("Proguser not exist with name: " + name);
+            throw new ResourceNotFoundException("Proguser not found with name: " + username);
         }
     }
 }

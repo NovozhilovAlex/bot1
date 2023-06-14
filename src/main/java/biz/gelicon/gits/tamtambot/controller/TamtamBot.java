@@ -50,6 +50,11 @@ public class TamtamBot extends LongPollingBot {
         updateController.processAuthCommand(message);
     }
 
+    @CommandHandler("/logout")
+    public void onLogoutCommandEntered(Message message) throws ClientException {
+        updateController.processLogoutCommand(message);
+    }
+
     @UpdateHandler
     public void onBotStarted(BotStartedUpdate update) throws ClientException {
         updateController.processBotStartedUpdate(update);

@@ -3,6 +3,7 @@ package biz.gelicon.gits.tamtambot.controller;
 import biz.gelicon.gits.tamtambot.entity.Issue;
 import biz.gelicon.gits.tamtambot.entity.IssueAppendix;
 import biz.gelicon.gits.tamtambot.entity.IssueStatus;
+import biz.gelicon.gits.tamtambot.exceptions.AlreadyAuthException;
 import biz.gelicon.gits.tamtambot.exceptions.ResourceNotFoundException;
 import biz.gelicon.gits.tamtambot.service.IssueService;
 import biz.gelicon.gits.tamtambot.service.ProguserChatService;
@@ -207,7 +208,7 @@ public class UpdateController {
 
         ParsedCommand parsedCommand = commandParser.getParsedCommand(messageText);
         if (parsedCommand.getText() == null) {
-            log.debug("Auth command argument is null");
+            log.debug("Auth command arguments is null");
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
                     "Команда /auth должна иметь аргументы (логин и пароль)"));
             return;
@@ -215,7 +216,7 @@ public class UpdateController {
 
         String[] commandArgs = parsedCommand.getText().split(" ");
         if (commandArgs.length != 2) {
-            log.debug("Auth command argument is null");
+            log.debug("Auth command arguments != 2");
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
                     "Команда /auth должна иметь два аргумента (логин и пароль)"));
             return;
@@ -223,7 +224,7 @@ public class UpdateController {
 
         String username = commandArgs[0].trim().toUpperCase();
         String password = commandArgs[1].trim();
-        log.info("Try to auth");
+        log.info("Try to auth with username " + username + " and password " + password);
         try {
             DriverManager.getConnection(dbUrl, username, password);
             proguserChatService.insertProguserChat(username, userId);
@@ -234,12 +235,32 @@ public class UpdateController {
         } catch (SQLException e) {
             log.debug("Incorrect password");
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
-                    "Неверный пароль"));
+                    "Неверный логин или пароль"));
         } catch (ResourceNotFoundException e) {
             log.debug(e.getMessage());
-            tamtamBot.sendAnswerMessage(createSendMessageQuery(Long.valueOf(userId),
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
                     "Proguser с именем " + username + " не найден"));
+        } catch (AlreadyAuthException e) {
+            log.debug(e.getMessage());
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                    "Вы уже аутентифицированы"));
         }
+    }
+
+    public void processLogoutCommand(Message message) throws ClientException {
+        String userId = String.valueOf(message.getSender().getUserId());
+        log.info("Try to delete ProguserChat with userId = " + userId);
+        try {
+            proguserChatService.deleteProguserChat(userId);
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                    "Вы успешно вышли"));
+            log.debug("ProguserChat with userId = " + userId + " has been deleted");
+        } catch (ResourceNotFoundException e) {
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                    "Вы успешно вышли"));
+            log.debug(e.getMessage());
+        }
+
     }
 
     public void processInboxCommand(Message message) throws ClientException {

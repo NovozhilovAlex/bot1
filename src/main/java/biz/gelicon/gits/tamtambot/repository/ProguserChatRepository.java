@@ -19,4 +19,8 @@ public interface ProguserChatRepository extends JpaRepository<ProguserChat, Inte
             "VALUES (next value FOR PROGUSERCHAT_ID_GEN, ?1,  ?2, ?3)",
             nativeQuery = true)
     void insert(int proguserId, int typeImId, String userId);
+
+    @Modifying
+    @Transactional
+    void deleteByUserId(String userId);
 }
