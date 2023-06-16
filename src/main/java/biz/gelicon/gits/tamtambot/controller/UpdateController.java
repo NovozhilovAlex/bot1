@@ -27,6 +27,7 @@ import javax.transaction.Transactional;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.*;
@@ -64,16 +65,17 @@ public class UpdateController {
 
     @Transactional
     public void processShowCommand(Message message) throws ClientException {
+        log.info("User with name " + message.getSender().getUsername() + " sent /show command");
+        String messageText = message.getBody().getText();
+        if (messageText == null) {
+            log.debug("Message text is null");
+            return;
+        }
+
         String userId = String.valueOf(message.getSender().getUserId());
         if (!isUserIdAuthorized(userId)) {
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
                     "У Вас нет доступа"));
-            return;
-        }
-
-        String messageText = message.getBody().getText();
-        if (messageText == null) {
-            log.debug("Message text is null");
             return;
         }
 
@@ -87,86 +89,92 @@ public class UpdateController {
         }
 
         String[] commandArgs = parsedCommand.getText().split(" ");
+        String issueId;
         if (commandArgs[0].charAt(0) == '#' && utils.isDigit(commandArgs[0].substring(1))) {
-            String IssueId = commandArgs[0].substring(1);
-            log.info("Try to get issue info by id = " + IssueId);
-            try {
-                String answerText;
-                Issue issue = issueService.getIssueById(Integer.parseInt(IssueId));
-                if (commandArgs.length == 1) {
-                    answerText = answerFormatter.getAnswerForShowCommand(issue);
-                } else if (commandArgs.length == 2 && Objects.equals(commandArgs[1].trim(), "short")) {
-                    IssueStatus issueStatus = issueService.getIssueStatusByIssueId(issue.getIssueId());
-                    answerText = answerFormatter.getAnswerForShortShowCommand(issueStatus, issue);
-                } else {
-                    log.debug("show command argument not valid");
-                    tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
-                            "Неверный синтаксис для команды /show"));
-                    processHelpCommand(message);
-                    return;
-                }
-
-                AttachmentsCarrier attachmentsCarrier = createAttachments(issue.getIssueAppendices());
-                if (answerText.length() > 4000) {
-                    List<String> answerTextList = utils.answerTextToStringList(answerText);
-                    for (int i = 0; i < answerTextList.size() - 1; i++) {
-                        NewMessageBody answer = NewMessageBodyBuilder
-                                .ofText(answerTextList.get(i), TextFormat.HTML)
-                                .build();
-                        SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
-                                .chatId(message.getRecipient().getChatId());
-                        createSendMessageWithAttachmentsQuery(query);
-                    }
-                    NewMessageBody answer = NewMessageBodyBuilder
-                            .ofText(answerTextList.get(answerTextList.size() - 1), TextFormat.HTML)
-                            .withAttachments(attachmentsCarrier.getImages())
-                            .build();
-                    SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
-                            .chatId(message.getRecipient().getChatId());
-                    createSendMessageWithAttachmentsQuery(query);
-                } else {
-                    NewMessageBody answer = NewMessageBodyBuilder
-                            .ofText(answerText, TextFormat.HTML)
-                            .withAttachments(attachmentsCarrier.getImages())
-                            .build();
-                    SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
-                            .chatId(message.getRecipient().getChatId());
-                    createSendMessageWithAttachmentsQuery(query);
-                }
-
-                for (UploadedInfo info : attachmentsCarrier.getFiles()) {
-                    NewMessageBody answer = NewMessageBodyBuilder
-                            .ofText("")
-                            .withAttachments(AttachmentsBuilder.files(info))
-                            .build();
-                    SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
-                            .chatId(message.getRecipient().getChatId());
-
-                    createSendMessageWithAttachmentsQuery(query);
-                }
-
-                for (String uncPath : attachmentsCarrier.getUncPaths()) {
-                    NewMessageBody answer = NewMessageBodyBuilder
-                            .ofText(answerFormatter.getLinkAnswer(uncPath), TextFormat.MARKDOWN)
-                            .build();
-                    SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
-                            .chatId(message.getRecipient().getChatId());
-                    tamtamBot.sendAnswerMessage(query);
-                }
-            } catch (ResourceNotFoundException e) {
-                log.debug(e.getMessage());
-                tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
-                        "Задачи с id = " + IssueId + " не существует"));
-            } catch (APIException | IOException | InterruptedException | RuntimeException e) {
-                log.warn(e.getMessage());
-                tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
-                        answerFormatter.getAnswerOnError(e)));
-            }
+            issueId = commandArgs[0].substring(1);
+        } else if (commandArgs[0].startsWith("GITS-") && utils.isDigit(commandArgs[0].substring(5))) {
+            issueId = commandArgs[0].substring(5);
+        } else if (utils.isDigit(commandArgs[0])) {
+            issueId = commandArgs[0];
         } else {
             log.debug("show command argument not valid");
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
                     "Неверный синтаксис для команды /show"));
             processHelpCommand(message);
+            return;
+        }
+
+        log.info("Try to get issue info by id = " + issueId);
+        try {
+            Issue issue = issueService.getIssueById(Integer.parseInt(issueId));
+            String answerText;
+            if (commandArgs.length == 1) {
+                answerText = answerFormatter.getAnswerForShowCommand(issue);
+            } else if (commandArgs.length == 2 && Objects.equals(commandArgs[1].trim(), "short")) {
+                IssueStatus issueStatus = issueService.getIssueStatusByIssueId(issue.getIssueId());
+                answerText = answerFormatter.getAnswerForShortShowCommand(issueStatus, issue);
+            } else {
+                log.debug("show command argument not valid");
+                tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                        "Неверный синтаксис для команды /show"));
+                processHelpCommand(message);
+                return;
+            }
+
+            AttachmentsCarrier attachmentsCarrier = createAttachments(issue.getIssueAppendices());
+            if (answerText.length() > 4000) {
+                List<String> answerTextList = utils.answerTextToStringList(answerText);
+                for (int i = 0; i < answerTextList.size() - 1; i++) {
+                    NewMessageBody answer = NewMessageBodyBuilder
+                            .ofText(answerTextList.get(i), TextFormat.HTML)
+                            .build();
+                    SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
+                            .chatId(message.getRecipient().getChatId());
+                    createSendMessageWithAttachmentsQuery(query);
+                }
+                NewMessageBody answer = NewMessageBodyBuilder
+                        .ofText(answerTextList.get(answerTextList.size() - 1), TextFormat.HTML)
+                        .withAttachments(attachmentsCarrier.getImages())
+                        .build();
+                SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
+                        .chatId(message.getRecipient().getChatId());
+                createSendMessageWithAttachmentsQuery(query);
+            } else {
+                NewMessageBody answer = NewMessageBodyBuilder
+                        .ofText(answerText, TextFormat.HTML)
+                        .withAttachments(attachmentsCarrier.getImages())
+                        .build();
+                SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
+                        .chatId(message.getRecipient().getChatId());
+                createSendMessageWithAttachmentsQuery(query);
+            }
+
+            for (UploadedInfo info : attachmentsCarrier.getFiles()) {
+                NewMessageBody answer = NewMessageBodyBuilder
+                        .ofText("")
+                        .withAttachments(AttachmentsBuilder.files(info))
+                        .build();
+                SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
+                        .chatId(message.getRecipient().getChatId());
+                createSendMessageWithAttachmentsQuery(query);
+            }
+
+            for (String uncPath : attachmentsCarrier.getUncPaths()) {
+                NewMessageBody answer = NewMessageBodyBuilder
+                        .ofText(answerFormatter.getLinkAnswer(uncPath), TextFormat.MARKDOWN)
+                        .build();
+                SendMessageQuery query = new SendMessageQuery(tamtamBot.getClient(), answer)
+                        .chatId(message.getRecipient().getChatId());
+                tamtamBot.sendAnswerMessage(query);
+            }
+        } catch (ResourceNotFoundException e) {
+            log.debug(e.getMessage());
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                    "Задачи с id = " + issueId + " не существует"));
+        } catch (APIException | IOException | InterruptedException | RuntimeException e) {
+            log.warn(e.getMessage());
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
+                    answerFormatter.getAnswerOnError(e)));
         }
     }
 
@@ -184,8 +192,8 @@ public class UpdateController {
                         "/auth {логин от gits} {пароль от gits} - Аутентификация\n" +
                         "/logout - Выход\n" +
                         "/help - Список команд\n" +
-                        "/show #{номер_задачи} - Содержание задачи\n" +
-                        "/show #{номер_задачи} short - Краткое содержание задачи\n" +
+                        "/show {номер_задачи} или /show GITS-{номер_задачи} - Содержание задачи\n" +
+                        "/show {номер_задачи} short - Краткое содержание задачи\n" +
                         "/inbox - Список всех Ваших задач\n\n" +
                         "Для доступа к вложениям, прикрепленным в виде" +
                         " unc-пути, скопируйте их путь, вставьте в строку Быстрый доступ в проводнике и нажмите Enter")
@@ -199,14 +207,14 @@ public class UpdateController {
     }
 
     public void processAuthCommand(Message message) throws ClientException {
-        String userId = String.valueOf(message.getSender().getUserId());
-
+        log.info("User with name " + message.getSender().getUsername() + " sent /auth command");
         String messageText = message.getBody().getText();
         if (messageText == null) {
             log.debug("Message text is null");
             return;
         }
 
+        String userId = String.valueOf(message.getSender().getUserId());
         ParsedCommand parsedCommand = commandParser.getParsedCommand(messageText);
         if (parsedCommand.getText() == null) {
             log.debug("Auth command arguments is null");
@@ -227,7 +235,8 @@ public class UpdateController {
         String password = commandArgs[1].trim();
         log.info("Try to auth with username " + username + " and password " + password);
         try {
-            DriverManager.getConnection(dbUrl, username, password);
+            Connection connection = DriverManager.getConnection(dbUrl, username, password);
+            connection.close();
             proguserChatService.insertProguserChat(username, userId);
             log.debug("User with userId = " + userId + " has been authorized");
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
@@ -249,6 +258,7 @@ public class UpdateController {
     }
 
     public void processLogoutCommand(Message message) throws ClientException {
+        log.info("User with name " + message.getSender().getUsername() + " sent /logout command");
         String userId = String.valueOf(message.getSender().getUserId());
         log.info("Try to delete ProguserChat with userId = " + userId);
         try {
@@ -265,16 +275,17 @@ public class UpdateController {
     }
 
     public void processInboxCommand(Message message) throws ClientException {
+        log.info("User with name " + message.getSender().getUsername() + " sent /inbox command");
+        String messageText = message.getBody().getText();
+        if (messageText == null) {
+            log.debug("Message text is null");
+            return;
+        }
+
         String userId = String.valueOf(message.getSender().getUserId());
         if (!isUserIdAuthorized(userId)) {
             tamtamBot.sendAnswerMessage(createSendMessageQuery(message.getRecipient().getChatId(),
                     "У Вас нет доступа"));
-            return;
-        }
-
-        String messageText = message.getBody().getText();
-        if (messageText == null) {
-            log.debug("Message text is null");
             return;
         }
 
@@ -318,15 +329,14 @@ public class UpdateController {
     }
 
     public void processButtonPressed(MessageCallbackUpdate update) throws ClientException {
+        log.info("User with name " + update.getCallback().getUser().getUsername() + " pressed AllIssues button");
         String userId = String.valueOf(update.getCallback().getUser().getUserId());
-        System.out.println(userId);
         if (!isUserIdAuthorized(userId)) {
             tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getMessage().getRecipient().getChatId(),
                     "У Вас нет доступа"));
             return;
         }
 
-        log.info("Try to get all issues");
         try {
             List<Issue> issues = workerService.getIssuesByUserId(userId);
             if (issues.isEmpty()) {
@@ -413,7 +423,6 @@ public class UpdateController {
             String name = appendix.getIssueAppendixName();
             String format = utils.cutFileFormat(name);
             ByteArrayInputStream bais = new ByteArrayInputStream(content);
-//            File file = new File(fileNameToLat(name));
             File file = File.createTempFile(utils.fileNameToLat(utils.cutFileName(name)), "." + format);
             compressor.decompressFile(bais, file);
             if (Set.of("png", "bmp", "jpg", "jpeg", "gif").contains(format.toLowerCase())) {
