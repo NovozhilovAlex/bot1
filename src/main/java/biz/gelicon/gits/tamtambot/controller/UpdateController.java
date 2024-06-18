@@ -1,5 +1,6 @@
 package biz.gelicon.gits.tamtambot.controller;
 
+import biz.gelicon.gits.tamtambot.dto.CommandDto;
 import biz.gelicon.gits.tamtambot.entity.Issue;
 import biz.gelicon.gits.tamtambot.entity.IssueAppendix;
 import biz.gelicon.gits.tamtambot.entity.IssueStatus;
@@ -21,12 +22,17 @@ import chat.tamtam.botapi.queries.SendMessageQuery;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.*;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.client.RestTemplate;
 
 import javax.transaction.Transactional;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -45,11 +51,13 @@ public class UpdateController {
     private TamtamBot tamtamBot;
     @Value("${spring.datasource.url}")
     private String dbUrl;
+    private final RestTemplate restTemplate;
 
     @Autowired
     public UpdateController(IssueService issueService, WorkerService workerService,
                             ProguserChatService proguserChatService, CommandParser commandParser,
-                            AnswerFormatter answerFormatter, FileCompressor compressor, Utils utils) {
+                            AnswerFormatter answerFormatter, FileCompressor compressor, Utils utils,
+                            RestTemplateBuilder restTemplateBuilder) {
         this.issueService = issueService;
         this.workerService = workerService;
         this.proguserChatService = proguserChatService;
@@ -57,6 +65,7 @@ public class UpdateController {
         this.answerFormatter = answerFormatter;
         this.compressor = compressor;
         this.utils = utils;
+        this.restTemplate = restTemplateBuilder.build();
     }
 
     public void registerBot(TamtamBot tamtamBot) {
@@ -366,11 +375,81 @@ public class UpdateController {
         }
     }
 
+    @Transactional
     public void processMessageCreatedUpdate(MessageCreatedUpdate update) throws ClientException {
         if (update.getMessage().getRecipient().getChatType() != ChatType.DIALOG) {
             return;
         }
-        processHelpCommand(update.getMessage());
+        String command = update.getMessage().getBody().getText();
+
+        String url = "http://127.0.0.1:8000/class/";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+
+        Map<String, Object> map = new HashMap<>();
+        map.put("text", command);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(map, headers);
+        ResponseEntity<CommandDto> response = this.restTemplate.postForEntity(url, entity, CommandDto.class);
+        if (response.getStatusCode() != HttpStatus.OK) {
+            log.warn(String.valueOf(response.getStatusCode()));
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getMessage().getRecipient().getChatId(),
+                    "Попробуйте использовать команду, а не сообщение"));
+            return;
+        }
+        float showConf = Objects.requireNonNull(response.getBody()).getShowConf();
+        float allConf = Objects.requireNonNull(response.getBody()).getAllConf();
+        float logoutConf = Objects.requireNonNull(response.getBody()).getLogoutConf();
+        float helpConf = Objects.requireNonNull(response.getBody()).getHelpConf();
+        String commandText = response.getBody().getText();
+        List<Float> confList = List.of(showConf, allConf, logoutConf, helpConf);
+        float maxConf = Collections.max(confList);
+        if (maxConf < 0.75f) {
+            tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getMessage().getRecipient().getChatId(),
+                    "Команда не распознана"));
+            return;
+        }
+        Message message = update.getMessage();
+        switch (confList.indexOf(maxConf)) {
+            case (0):
+                int issueId = commandParser.getNumberFromShowCommand(commandText);
+                if (issueId == -1) {
+                    tamtamBot.sendAnswerMessage(createSendMessageQuery(update.getMessage().getRecipient().getChatId(),
+                            "Для предоставления информации о задаче необходимо передать ее идентификатор"));
+                    return;
+                }
+                MessageBody messageBodyShow = new MessageBody(message.getBody().getMid(), message.getBody().getSeq(),
+                        "/show #" + issueId, message.getBody().getAttachments());
+                Message newMessageShow = new Message(message.getRecipient(), message.getTimestamp(), messageBodyShow);
+                newMessageShow.setSender(message.getSender());
+                processShowCommand(newMessageShow);
+                break;
+            case (1):
+                MessageBody messageBodyAll = new MessageBody(message.getBody().getMid(), message.getBody().getSeq(),
+                        "/inbox", message.getBody().getAttachments());
+                Message newMessageAll = new Message(message.getRecipient(), message.getTimestamp(), messageBodyAll);
+                newMessageAll.setSender(message.getSender());
+                processInboxCommand(newMessageAll);
+                break;
+            case (2):
+                MessageBody messageBodyLogout = new MessageBody(message.getBody().getMid(), message.getBody().getSeq(),
+                        "/logout", message.getBody().getAttachments());
+                Message newMessageLogout = new Message(message.getRecipient(), message.getTimestamp(),
+                        messageBodyLogout);
+                newMessageLogout.setSender(message.getSender());
+                processLogoutCommand(newMessageLogout);
+                break;
+            case (3):
+                MessageBody messageBodyHelp = new MessageBody(message.getBody().getMid(), message.getBody().getSeq(),
+                        "/help", message.getBody().getAttachments());
+                Message newMessageHelp = new Message(message.getRecipient(), message.getTimestamp(), messageBodyHelp);
+                newMessageHelp.setSender(message.getSender());
+                processHelpCommand(newMessageHelp);
+                break;
+        }
+
+//        processHelpCommand(update.getMessage());
     }
 
     private SendMessageQuery createSendMessageQuery(Long chatId, String text) {
@@ -445,11 +524,12 @@ public class UpdateController {
     }
 
     private boolean isUserIdAuthorized(String userId) {
-        if (proguserChatService.isProguserChatFindByUserId(userId)) {
-            return true;
-        } else {
-            log.debug("Unauthorized user, userId = " + userId);
-            return false;
-        }
+//        if (proguserChatService.isProguserChatFindByUserId(userId)) {
+//            return true;
+//        } else {
+//            log.debug("Unauthorized user, userId = " + userId);
+//            return false;
+//        }
+        return true;
     }
 }

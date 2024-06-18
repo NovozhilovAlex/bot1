@@ -3,6 +3,8 @@ package biz.gelicon.gits.tamtambot.utils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
+
 @Component
 @Slf4j
 public class CommandParser {
@@ -10,7 +12,7 @@ public class CommandParser {
 
     public ParsedCommand getParsedCommand(String messageText) {
         ParsedCommand result = new ParsedCommand(Command.NONE, messageText);
-        if (messageText.equals("")) {
+        if (messageText.isEmpty()) {
             return result;
         }
         Command command = Command.NONE;
@@ -34,5 +36,13 @@ public class CommandParser {
             result.setText(text);
         }
         return result;
+    }
+
+    public int getNumberFromShowCommand(String command) {
+        String numStr = command.replaceAll("\\D+","");
+        if (numStr.isEmpty()) {
+            return -1;
+        }
+        return Integer.parseInt(numStr);
     }
 }
